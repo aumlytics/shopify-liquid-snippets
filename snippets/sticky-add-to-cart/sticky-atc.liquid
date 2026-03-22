@@ -1,0 +1,68 @@
+{% comment %}
+  Sticky Add-to-Cart Bar
+  ──────────────────────
+  Usage: {% render 'sticky-atc', product: product %}
+  Also load sticky-atc.js from assets.
+  Add id="MainATC" to your existing ATC button.
+{% endcomment %}
+
+<div
+  id="StickyATC"
+  class="sticky-atc"
+  aria-hidden="true"
+  data-product-id="{{ product.id }}"
+>
+  <div class="sticky-atc__inner">
+    <div class="sticky-atc__info">
+      <span class="sticky-atc__title">{{ product.title }}</span>
+      <span class="sticky-atc__price" id="StickyATCPrice">
+        {{ product.selected_or_first_available_variant.price | money }}
+      </span>
+    </div>
+
+    <form action="/cart/add" method="post" class="sticky-atc__form" id="StickyATCForm">
+      <input type="hidden" name="id" id="StickyVariantId"
+             value="{{ product.selected_or_first_available_variant.id }}">
+      <input type="hidden" name="quantity" value="1">
+      <button type="submit" class="sticky-atc__btn"
+        {%- unless product.selected_or_first_available_variant.available %} disabled{%- endunless %}>
+        {%- if product.selected_or_first_available_variant.available -%}
+          Add to Cart
+        {%- else -%}
+          Sold Out
+        {%- endif -%}
+      </button>
+    </form>
+  </div>
+</div>
+
+<style>
+  .sticky-atc {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: var(--sticky-atc-bg, #fff);
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+    transform: translateY(100%);
+    transition: transform .25s ease;
+    will-change: transform;
+  }
+  .sticky-atc.is-visible { transform: translateY(0); }
+  .sticky-atc__inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; padding: 0.75rem 1.5rem;
+  }
+  .sticky-atc__info { display: flex; flex-direction: column; gap: 2px; }
+  .sticky-atc__title { font-weight: 600; font-size: 0.9rem; }
+  .sticky-atc__price { font-size: 0.85rem; color: #374151; }
+  .sticky-atc__btn {
+    padding: 0.6rem 1.5rem; background: #111; color: #fff;
+    border: none; border-radius: 4px; cursor: pointer;
+    font-size: 0.9rem; font-weight: 600; white-space: nowrap;
+  }
+  .sticky-atc__btn:hover { background: #333; }
+  .sticky-atc__btn:disabled { background: #9ca3af; cursor: not-allowed; }
+  @media (max-width: 480px) {
+    .sticky-atc__title { display: none; }
+  }
+</style>

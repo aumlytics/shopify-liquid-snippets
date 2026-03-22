@@ -1,0 +1,25 @@
+{% comment %}
+  Sale Badge + Discount Percentage
+  ──────────────────────────────────
+  Usage: {% render 'sale-badge', product: product %}
+
+  Shows "Save X%" badge when a product has a compare_at_price.
+  Works on product cards (collection pages) and product pages.
+{% endcomment %}
+
+{%- liquid
+  assign show_badge = false
+  assign discount_pct = 0
+
+  if product.compare_at_price > product.price
+    assign show_badge = true
+    assign price_diff = product.compare_at_price | minus: product.price
+    assign discount_pct = price_diff | times: 100.0 | divided_by: product.compare_at_price | round
+  endif
+-%}
+
+{%- if show_badge -%}
+  <span class="sale-badge" aria-label="On sale — save {{ discount_pct }}%">
+    Save {{ discount_pct }}%
+  </span>
+{%- endif -%}

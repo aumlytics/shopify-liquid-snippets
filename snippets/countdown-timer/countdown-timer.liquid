@@ -1,0 +1,74 @@
+{% comment %}
+  Countdown Timer (Metafield-driven)
+  ────────────────────────────────────
+  Usage: {% render 'countdown-timer', product: product %}
+
+  Reads end date from product.metafields.custom.sale_end_date
+  Adjust namespace/key to match your metafield definition.
+{% endcomment %}
+
+{%- assign end_date = product.metafields.custom.sale_end_date.value -%}
+
+{%- if end_date != blank -%}
+  <div
+    class="countdown-timer"
+    id="countdown-{{ product.id }}"
+    data-end="{{ end_date }}"
+    aria-live="polite"
+  >
+    <span class="countdown-label">Sale ends in:</span>
+    <span class="countdown-display">
+      <span class="countdown-part"><span class="countdown-hours">--</span><small>h</small></span>
+      <span class="countdown-sep">:</span>
+      <span class="countdown-part"><span class="countdown-minutes">--</span><small>m</small></span>
+      <span class="countdown-sep">:</span>
+      <span class="countdown-part"><span class="countdown-seconds">--</span><small>s</small></span>
+    </span>
+  </div>
+
+  <style>
+    .countdown-timer {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 0.8rem; background: #fef2f2;
+      border: 1px solid #fca5a5; border-radius: 4px;
+      font-size: 0.9rem; margin-bottom: 1rem;
+    }
+    .countdown-label { color: #b91c1c; font-weight: 600; }
+    .countdown-display { display: flex; align-items: baseline; gap: 2px; }
+    .countdown-part { font-weight: 700; font-size: 1.1rem; }
+    .countdown-part small { font-weight: 400; font-size: 0.7rem; color: #6b7280; }
+    .countdown-sep { color: #b91c1c; font-weight: 700; }
+  </style>
+
+  <script>
+    (function () {
+      const el  = document.getElementById('countdown-{{ product.id }}');
+      if (!el) return;
+
+      const endTime = new Date(el.dataset.end).getTime();
+      if (isNaN(endTime)) { el.remove(); return; }
+
+      const hoursEl   = el.querySelector('.countdown-hours');
+      const minutesEl = el.querySelector('.countdown-minutes');
+      const secondsEl = el.querySelector('.countdown-seconds');
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+
+      function tick() {
+        const diff = endTime - Date.now();
+        if (diff <= 0) {
+          el.remove();
+          clearInterval(timer);
+          return;
+        }
+        const totalSecs = Math.floor(diff / 1000);
+        hoursEl.textContent   = pad(Math.floor(totalSecs / 3600));
+        minutesEl.textContent = pad(Math.floor((totalSecs % 3600) / 60));
+        secondsEl.textContent = pad(totalSecs % 60);
+      }
+
+      tick();
+      const timer = setInterval(tick, 1000);
+    })();
+  </script>
+{%- endif -%}

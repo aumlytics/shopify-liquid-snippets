@@ -1,0 +1,65 @@
+{% comment %}
+  Color Swatches + Variant Image Swap
+  ─────────────────────────────────────
+  Usage: {% render 'swatches', product: product %}
+  Requires Dawn 13+ or a theme with native swatch support.
+  Also load swatches.js from assets.
+{% endcomment %}
+
+{%- assign color_option = product.options_by_name['Color'] -%}
+{%- if color_option == blank -%}
+  {%- assign color_option = product.options_by_name['Colour'] -%}
+{%- endif -%}
+
+{%- if color_option != blank -%}
+  <div class="product-swatches" data-product-id="{{ product.id }}" aria-label="Color options">
+    {%- for value in color_option.values -%}
+      {%- liquid
+        assign swatch      = value.swatch
+        assign swatch_color = swatch.color | default: value | handle | replace: '-', ' '
+        assign variant     = product.variants | where: 'option1', value | first
+
+        if variant.image
+          assign swatch_image = variant.image | image_url: width: 800
+        elsif product.featured_image
+          assign swatch_image = product.featured_image | image_url: width: 800
+        else
+          assign swatch_image = ''
+        endif
+      -%}
+
+      <button
+        class="swatch-btn{% if forloop.first %} is-active{% endif %}"
+        aria-label="{{ value | escape }}"
+        title="{{ value | escape }}"
+        data-value="{{ value | escape }}"
+        data-image="{{ swatch_image }}"
+        data-variant-id="{{ variant.id }}"
+        style="
+          background-color: {{ swatch_color }};
+          {% if swatch.image != blank %}
+            background-image: url('{{ swatch.image | image_url: width: 60 }}');
+            background-size: cover;
+          {% endif %}
+        "
+      ></button>
+    {%- endfor -%}
+  </div>
+{%- endif -%}
+
+<style>
+  .product-swatches {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.5rem;
+  }
+  .swatch-btn {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer;
+    padding: 0; outline-offset: 2px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .swatch-btn:hover,
+  .swatch-btn.is-active {
+    border-color: #111;
+    transform: scale(1.15);
+  }
+</style>

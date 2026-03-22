@@ -1,0 +1,46 @@
+{% comment %}
+  Recently Viewed Products
+  ─────────────────────────
+  Track mode (on product pages):
+    {% render 'recently-viewed', product: product, mode: 'track' %}
+
+  Display mode (wherever you want the grid):
+    {% render 'recently-viewed', mode: 'display', max_items: 4 %}
+{% endcomment %}
+
+{%- assign rv_mode     = mode | default: 'track' -%}
+{%- assign rv_max      = max_items | default: 4 -%}
+
+{%- if rv_mode == 'track' and product != blank -%}
+  {%- comment -%} Embed the current product handle for JS to record {%- endcomment -%}
+  <div
+    id="rv-track"
+    data-handle="{{ product.handle }}"
+    style="display:none"
+  ></div>
+
+{%- elsif rv_mode == 'display' -%}
+  <div
+    id="rv-display"
+    class="recently-viewed"
+    data-max="{{ rv_max }}"
+    style="display:none"
+  >
+    <h2 class="recently-viewed__heading">Recently Viewed</h2>
+    <div class="recently-viewed__grid" id="rv-grid"></div>
+  </div>
+
+  <style>
+    .recently-viewed { margin: 2rem 0; }
+    .recently-viewed__heading { margin-bottom: 1rem; font-size: 1.25rem; font-weight: 700; }
+    .recently-viewed__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+    .rv-card { text-decoration: none; color: inherit; }
+    .rv-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+    .rv-card__title { font-size: 0.85rem; margin-top: 0.4rem; font-weight: 600; }
+    .rv-card__price { font-size: 0.8rem; color: #6b7280; }
+  </style>
+{%- endif -%}

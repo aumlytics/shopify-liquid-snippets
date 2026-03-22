@@ -1,0 +1,70 @@
+{% comment %}
+  Variant Metafield Display (Dynamic)
+  ─────────────────────────────────────
+  Usage:
+    {% render 'variant-metafield',
+      product: product,
+      metafield_namespace: 'custom',
+      metafield_key: 'material',
+      label: 'Material'
+    %}
+
+  Displays a metafield that updates when the variant changes.
+{% endcomment %}
+
+{% assign mf_namespace = metafield_namespace | default: 'custom' %}
+{% assign mf_key       = metafield_key %}
+
+{%- comment -%} Build a JSON map of variantId → metafield value {%- endcomment -%}
+{%- capture variant_metafield_map -%}
+  {
+    {%- for variant in product.variants -%}
+      "{{ variant.id }}": {{ variant.metafields[mf_namespace][mf_key].value | json }}
+      {%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  }
+{%- endcapture -%}
+
+<div
+  class="variant-metafield-display"
+  data-metafield-map='{{ variant_metafield_map }}'
+  data-variant-metafield
+>
+  {%- if label != blank -%}
+    <span class="variant-metafield-label">{{ label }}: </span>
+  {%- endif -%}
+  <span class="variant-metafield-value">
+    {{- product.selected_or_first_available_variant.metafields[mf_namespace][mf_key].value -}}
+  </span>
+</div>
+
+<script>
+  (function () {
+    const container = document.querySelector('[data-variant-metafield]');
+    if (!container) return;
+
+    const valueEl = container.querySelector('.variant-metafield-value');
+    const map     = JSON.parse(container.dataset.metafieldMap || '{}');
+
+    function updateMetafield(variantId) {
+      const val = map[String(variantId)];
+      valueEl.textContent = val !== undefined && val !== null ? val : '—';
+      container.style.display = (val !== undefined && val !== null && val !== '') ? '' : 'none';
+    }
+
+    // Listen for Shopify's variant change event (works with Dawn and most OS 2.0 themes)
+    document.addEventListener('variant:changed', (e) => {
+      updateMetafield(e.detail.variant.id);
+    });
+
+    // Fallback: watch the hidden variant input directly
+    const variantInput = document.querySelector(
+      'input[name="id"][form], select[name="id"]'
+    );
+    if (variantInput) {
+      variantInput.addEventListener('change', () => {
+        updateMetafield(variantInput.value);
+      });
+    }
+  })();
+</script>

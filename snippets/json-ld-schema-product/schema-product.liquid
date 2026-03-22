@@ -1,0 +1,97 @@
+{% comment %}
+  JSON-LD Structured Data — Product + Breadcrumb + Organization
+  ──────────────────────────────────────────────────────────────
+  Usage (product pages):
+    {% render 'schema-product', product: product, collection: collection %}
+  Usage (all pages, for Organization only):
+    {% render 'schema-product' %}
+{% endcomment %}
+
+{%- liquid
+  assign current_variant = product.selected_or_first_available_variant
+  assign product_image   = product.featured_image | image_url: width: 1200
+  assign product_url     = shop.url | append: product.url
+-%}
+
+{% comment %} ── Organization Schema (all pages) ── {% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": {{ shop.name | json }},
+  "url": {{ shop.url | json }},
+  "logo": {
+    "@type": "ImageObject",
+    "url": {{ shop.url | append: '/assets/logo.png' | json }}
+  },
+  "sameAs": []
+}
+</script>
+
+{%- if product != blank -%}
+{% comment %} ── Product Schema ── {% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": {{ product.title | json }},
+  "description": {{ product.description | strip_html | truncate: 500 | json }},
+  "url": {{ product_url | json }},
+  "image": [{{ product_image | json }}],
+  "sku": {{ current_variant.sku | default: current_variant.id | json }},
+  "brand": {
+    "@type": "Brand",
+    "name": {{ product.vendor | json }}
+  },
+  "offers": {
+    "@type": "Offer",
+    "url": {{ product_url | json }},
+    "priceCurrency": {{ cart.currency.iso_code | json }},
+    "price": {{ current_variant.price | divided_by: 100.0 | json }},
+    "availability": {%- if current_variant.available -%}"https://schema.org/InStock"{%- else -%}"https://schema.org/OutOfStock"{%- endif -%},
+    "itemCondition": "https://schema.org/NewCondition",
+    "seller": {
+      "@type": "Organization",
+      "name": {{ shop.name | json }}
+    }
+  }
+  {%- if product.metafields.reviews.rating.value != blank -%}
+  ,"aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": {{ product.metafields.reviews.rating.value | json }},
+    "reviewCount": {{ product.metafields.reviews.rating_count.value | default: 1 | json }}
+  }
+  {%- endif -%}
+}
+</script>
+
+{%- if collection != blank -%}
+{% comment %} ── BreadcrumbList Schema ── {% endcomment %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": {{ shop.url | json }}
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": {{ collection.title | json }},
+      "item": {{ shop.url | append: collection.url | json }}
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": {{ product.title | json }},
+      "item": {{ product_url | json }}
+    }
+  ]
+}
+</script>
+{%- endif -%}
+{%- endif -%}
