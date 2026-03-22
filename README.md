@@ -36,7 +36,7 @@ These snippets are the answers — production-ready, well-commented, and updated
 | 12 | [Responsive Image with srcset](snippets/responsive-image-srcset/) | Correct srcset/sizes for Shopify images — kills LCP issues | ⭐ |
 | 13 | [Infinite Scroll Collection Pages](snippets/infinite-scroll-collection/) | Load more products automatically as users scroll — no pagination clicks | ⭐⭐ |
 
-> New snippets are added automatically every week via GitHub Actions + Claude AI, researched from r/shopify and r/shopifydev.
+> New snippets are added weekly, sourced from recurring questions on r/shopify and r/shopifydev.
 
 ---
 
