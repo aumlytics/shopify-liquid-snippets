@@ -1,0 +1,189 @@
+```liquid
+{% comment %}
+  Quantity Breaks Tiered Pricing Display
+  ======================================
+  
+  Displays volume discount tiers and updates pricing dynamically.
+  
+  Parameters:
+    - product: (required) The product object
+    - current_variant: (required) The selected variant
+    - show_savings: (optional) Show savings calculator, default true
+    - show_unit_price: (optional) Show per-unit price, default true
+    - highlight_best_value: (optional) Highlight best tier, default true
+    - tier_1_qty, tier_1_discount: First tier config
+    - tier_2_qty, tier_2_discount: Second tier config  
+    - tier_3_qty, tier_3_discount: Third tier config
+    - currency_symbol: (optional) Currency symbol, default '$'
+    - heading_text: (optional) Section heading
+    - quantity_selector: (optional) CSS selector for quantity input
+    
+  Usage:
+    {% render 'quantity-breaks-tiered-pricing',
+      product: product,
+      current_variant: product.selected_or_first_available_variant
+    %}
+{% endcomment %}
+
+{%- comment -%} 
+  === CONFIGURATION ===
+  We prioritize metafields over parameters for flexibility.
+  Shop owners can update tiers without code changes.
+{%- endcomment -%}
+
+{%- liquid
+  # Set defaults for all parameters
+  assign show_savings = show_savings | default: true
+  assign show_unit_price = show_unit_price | default: true
+  assign highlight_best_value = highlight_best_value | default: true
+  assign currency_symbol = currency_symbol | default: '$'
+  assign heading_text = heading_text | default: 'Buy More, Save More'
+  assign quantity_selector = quantity_selector | default: '[name="quantity"]'
+  
+  # Default tier configuration (can be overridden by metafields or parameters)
+  assign default_tier_1_qty = tier_1_qty | default: 5
+  assign default_tier_1_discount = tier_1_discount | default: 10
+  assign default_tier_2_qty = tier_2_qty | default: 10
+  assign default_tier_2_discount = tier_2_discount | default: 15
+  assign default_tier_3_qty = tier_3_qty | default: 25
+  assign default_tier_3_discount = tier_3_discount | default: 20
+  
+  # Check for metafield-based pricing tiers
+  # This allows per-product tier customization from the admin
+  assign has_metafield_tiers = false
+  if product.metafields.custom.quantity_breaks != blank
+    assign has_metafield_tiers = true
+    assign metafield_tiers = product.metafields.custom.quantity_breaks.value
+  endif
+  
+  # Get the current variant's price in cents
+  assign base_price_cents = current_variant.price
+  assign base_price = base_price_cents | money_without_trailing_zeros
+  assign compare_price_cents = current_variant.compare_at_price | default: base_price_cents
+  
+  # Check if product is available
+  assign is_available = current_variant.available
+-%}
+
+{%- comment -%}
+  Only render if the product is available and has valid pricing.
+  No point showing bulk discounts for out-of-stock items.
+{%- endcomment -%}
+{%- if is_available and base_price_cents > 0 -%}
+
+{%- comment -%}
+  === INLINE STYLES ===
+  Scoped with .qb- prefix to avoid conflicts.
+  Using CSS custom properties for easy theme customization.
+{%- endcomment -%}
+<style>
+  /* CSS Custom Properties for easy theming */
+  .qb-container {
+    --qb-primary-color: #2c6e49;
+    --qb-primary-hover: #1e4d34;
+    --qb-background: #f8faf9;
+    --qb-border-color: #e0e7e3;
+    --qb-active-background: #e8f5e9;
+    --qb-active-border: #2c6e49;
+    --qb-best-value-bg: #fff3cd;
+    --qb-best-value-color: #856404;
+    --qb-savings-color: #2c6e49;
+    --qb-text-primary: #1a1a1a;
+    --qb-text-secondary: #666666;
+    --qb-border-radius: 8px;
+    --qb-transition: 0.2s ease;
+  }
+  
+  /* Container styling */
+  .qb-container {
+    font-family: inherit;
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    background: var(--qb-background);
+    border: 1px solid var(--qb-border-color);
+    border-radius: var(--qb-border-radius);
+  }
+  
+  /* Heading */
+  .qb-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--qb-text-primary);
+  }
+  
+  .qb-heading-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--qb-primary-color);
+  }
+  
+  /* Tiers list - using semantic list for accessibility */
+  .qb-tiers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  /* Individual tier item */
+  .qb-tier-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    background: #ffffff;
+    border: 2px solid var(--qb-border-color);
+    border-radius: var(--qb-border-radius);
+    cursor: pointer;
+    transition: 
+      border-color var(--qb-transition),
+      background-color var(--qb-transition),
+      box-shadow var(--qb-transition);
+  }
+  
+  /* Hover state */
+  .qb-tier-item:hover {
+    border-color: var(--qb-primary-color);
+    box-shadow: 0 2px 8px rgba(44, 110, 73, 0.1);
+  }
+  
+  /* Focus state for keyboard navigation */
+  .qb-tier-item:focus-within {
+    outline: 2px solid var(--qb-primary-color);
+    outline-offset: 2px;
+  }
+  
+  /* Active/selected tier */
+  .qb-tier-item.qb-tier-active {
+    background: var(--qb-active-background);
+    border-color: var(--qb-active-border);
+  }
+  
+  .qb-tier-item.qb-tier-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--qb-primary-color);
+    border-radius: var(--qb-border-radius) 0 0 var(--qb-border-radius);
+  }
+  
+  /* Best value badge */
+  .qb-best-value-badge {
+    position: absolute;
+    top: -0.625rem;
+    right: 1rem;
+    padding: 0.25
