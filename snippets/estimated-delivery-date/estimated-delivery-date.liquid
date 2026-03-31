@@ -1,0 +1,110 @@
+```liquid
+{% comment %}
+  Estimated Delivery Date Display
+  ================================
+  Shows customers an estimated delivery date range based on:
+  - Order processing time (business days)
+  - Selected shipping method
+  - Cutoff time for same-day processing
+  - Holiday exclusions
+  
+  @param {Number} processing_days_min - Minimum processing business days (default: 1)
+  @param {Number} processing_days_max - Maximum processing business days (default: 2)
+  @param {String} shipping_methods - Comma-separated shipping options (id:min:max:label)
+  @param {String} default_method - Pre-selected shipping method ID
+  @param {Number} cutoff_hour - Hour (24h) cutoff for same-day processing (default: 14)
+  @param {String} cutoff_timezone - Timezone for cutoff (default: 'America/New_York')
+  @param {Boolean} show_countdown - Show order-by countdown (default: true)
+  @param {Boolean} show_icon - Show delivery icon (default: true)
+  @param {Boolean} show_method_selector - Allow method selection (default: true)
+  @param {String} context - 'product' or 'cart' (default: 'product')
+  @param {String} date_format - Date format preset (default: 'weekday_month_day')
+  @param {String} locale - Locale for dates (default: 'en-US')
+  @param {String} holidays - Comma-separated holidays (MM-DD or YYYY-MM-DD)
+  @param {Boolean} exclude_weekends - Skip weekends (default: true)
+  @param {String} wrapper_class - Additional wrapper CSS class
+  @param {String} id_prefix - Prefix for IDs (default: 'edd')
+{% endcomment %}
+
+{% comment %} === PARAMETER DEFAULTS === {% endcomment %}
+{% comment %} Using | default filter ensures we have sensible values even when params aren't passed {% endcomment %}
+{%- assign processing_days_min = processing_days_min | default: 1 -%}
+{%- assign processing_days_max = processing_days_max | default: 2 -%}
+{%- assign shipping_methods = shipping_methods | default: 'standard:5:7:Standard Shipping' -%}
+{%- assign default_method = default_method | default: 'standard' -%}
+{%- assign cutoff_hour = cutoff_hour | default: 14 -%}
+{%- assign cutoff_timezone = cutoff_timezone | default: 'America/New_York' -%}
+{%- assign show_countdown = show_countdown | default: true -%}
+{%- assign show_icon = show_icon | default: true -%}
+{%- assign show_method_selector = show_method_selector | default: true -%}
+{%- assign context = context | default: 'product' -%}
+{%- assign date_format = date_format | default: 'weekday_month_day' -%}
+{%- assign locale = locale | default: 'en-US' -%}
+{%- assign holidays = holidays | default: '' -%}
+{%- assign exclude_weekends = exclude_weekends | default: true -%}
+{%- assign wrapper_class = wrapper_class | default: '' -%}
+{%- assign id_prefix = id_prefix | default: 'edd' -%}
+
+{% comment %} === PARSE SHIPPING METHODS === {% endcomment %}
+{% comment %} 
+  We parse the shipping methods string into an array structure.
+  Format: "id:min_days:max_days:label,id:min_days:max_days:label"
+  This approach keeps configuration simple (single string parameter) while
+  supporting complex data.
+{% endcomment %}
+{%- assign methods_array = shipping_methods | split: ',' -%}
+{%- assign parsed_methods = '' -%}
+
+{% comment %} === COMPONENT STYLES === {% endcomment %}
+{% comment %}
+  Styles are inlined and scoped to prevent conflicts with theme CSS.
+  CSS custom properties allow easy customization without editing the snippet.
+  We use BEM-like naming (edd-*) to ensure specificity without !important.
+{% endcomment %}
+<style>
+  /* === CSS Custom Properties === */
+  /* These can be overridden by parent stylesheets for easy theming */
+  .edd-wrapper {
+    --edd-primary-color: #2E7D32;
+    --edd-primary-hover: #1B5E20;
+    --edd-secondary-color: #1565C0;
+    --edd-background-color: #F9FBF9;
+    --edd-border-color: #C8E6C9;
+    --edd-text-color: #2E3A2E;
+    --edd-text-muted: #5F6B5F;
+    --edd-countdown-color: #D84315;
+    --edd-font-size-base: 14px;
+    --edd-font-size-small: 12px;
+    --edd-font-size-large: 16px;
+    --edd-spacing-xs: 4px;
+    --edd-spacing-sm: 8px;
+    --edd-spacing-md: 12px;
+    --edd-spacing-lg: 16px;
+    --edd-border-radius: 6px;
+    --edd-transition-speed: 200ms;
+  }
+
+  /* === Base Wrapper === */
+  .edd-wrapper {
+    font-family: inherit;
+    font-size: var(--edd-font-size-base);
+    line-height: 1.5;
+    color: var(--edd-text-color);
+    background: var(--edd-background-color);
+    border: 1px solid var(--edd-border-color);
+    border-radius: var(--edd-border-radius);
+    padding: var(--edd-spacing-md);
+    margin: var(--edd-spacing-md) 0;
+    /* Prevent layout shifts during JS initialization */
+    min-height: 60px;
+  }
+
+  /* Context-specific styling */
+  .edd-wrapper--cart {
+    background: transparent;
+    border: none;
+    padding: var(--edd-spacing-sm) 0;
+  }
+
+  /* === Header with Icon === */
+  .edd
