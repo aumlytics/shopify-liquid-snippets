@@ -1,0 +1,218 @@
+```liquid
+{%- comment -%}
+  Rotating Announcement Bar
+  
+  A production-ready announcement bar that cycles through multiple messages
+  with smooth transitions and full accessibility support.
+  
+  @param {string} messages - Messages separated by | character
+  @param {number} rotation_speed - Milliseconds between rotations (default: 4000)
+  @param {string} background_color - Bar background color (default: #2c2c2c)
+  @param {string} text_color - Text color (default: #ffffff)
+  @param {boolean} show_close_button - Show dismiss button (default: true)
+  @param {string} link_url - Optional URL for message links
+  @param {boolean} pause_on_hover - Pause rotation on hover (default: true)
+  @param {boolean} show_navigation - Show dot indicators (default: true)
+  @param {string} transition_style - Animation: fade, slide, slide-left (default: fade)
+  @param {number} cookie_days - Days to persist dismissed state (default: 1)
+  @param {string} bar_id - Unique identifier for multiple bars (default: main)
+{%- endcomment -%}
+
+{%- liquid
+  # Set defaults using Liquid's default filter
+  # This ensures the component works even with minimal configuration
+  assign messages = messages | default: ''
+  assign rotation_speed = rotation_speed | default: 4000
+  assign background_color = background_color | default: '#2c2c2c'
+  assign text_color = text_color | default: '#ffffff'
+  assign show_close_button = show_close_button | default: true
+  assign pause_on_hover = pause_on_hover | default: true
+  assign show_navigation = show_navigation | default: true
+  assign transition_style = transition_style | default: 'fade'
+  assign cookie_days = cookie_days | default: 1
+  assign bar_id = bar_id | default: 'main'
+  
+  # Generate unique ID for this instance
+  # Important for multiple announcement bars on same page
+  assign unique_id = 'announcement-bar-' | append: bar_id
+  assign cookie_name = 'announcement_dismissed_' | append: bar_id
+  
+  # Parse messages by splitting on pipe character
+  # Trim whitespace from each message for clean display
+  assign messages_array = messages | split: '|'
+  assign message_count = messages_array.size
+  
+  # Exit early if no messages provided
+  if message_count == 0 or messages == blank
+    break
+  endif
+  
+  # Calculate contrasting colors for hover states
+  # We'll use CSS custom properties for flexibility
+-%}
+
+{%- comment -%}
+  Scoped CSS - Using unique ID prefix to prevent style conflicts
+  with other theme components or multiple bar instances
+{%- endcomment -%}
+<style>
+  /* 
+   * CSS Custom Properties for easy theming
+   * These cascade down to all child elements
+   */
+  #{{ unique_id }} {
+    --rab-bg-color: {{ background_color }};
+    --rab-text-color: {{ text_color }};
+    --rab-transition-duration: 0.4s;
+    --rab-bar-height: 44px;
+    --rab-font-size: 14px;
+  }
+
+  /*
+   * Base bar styles
+   * Using position relative for absolute positioned children
+   */
+  #{{ unique_id }}.rotating-announcement-bar {
+    position: relative;
+    width: 100%;
+    background-color: var(--rab-bg-color);
+    color: var(--rab-text-color);
+    font-size: var(--rab-font-size);
+    line-height: 1.4;
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  /*
+   * Hidden state - maintains DOM presence for accessibility
+   * Using max-height transition for smooth collapse
+   */
+  #{{ unique_id }}.rotating-announcement-bar--hidden {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+  }
+
+  /*
+   * Inner wrapper - handles content centering and padding
+   */
+  #{{ unique_id }} .rab__wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--rab-bar-height);
+    padding: 8px 48px;
+    margin: 0 auto;
+    max-width: 1400px;
+  }
+
+  /*
+   * Messages container - positioned relative for transition effects
+   * Overflow hidden clips sliding animations
+   */
+  #{{ unique_id }} .rab__messages {
+    position: relative;
+    flex: 1;
+    text-align: center;
+    overflow: hidden;
+    min-height: 24px;
+  }
+
+  /*
+   * Individual message styling
+   * All messages stacked absolutely for transition overlap
+   */
+  #{{ unique_id }} .rab__message {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 
+      opacity var(--rab-transition-duration) ease-in-out,
+      transform var(--rab-transition-duration) ease-in-out,
+      visibility var(--rab-transition-duration);
+  }
+
+  /* First message visible by default (no-JS fallback) */
+  #{{ unique_id }} .rab__message:first-child {
+    position: relative;
+  }
+
+  /* Active message state */
+  #{{ unique_id }} .rab__message--active {
+    opacity: 1;
+    visibility: visible;
+    position: relative;
+  }
+
+  /*
+   * Transition Styles
+   * Each style has enter and exit states
+   */
+  
+  /* Fade transition (default) */
+  #{{ unique_id }}[data-transition="fade"] .rab__message {
+    transform: none;
+  }
+
+  /* Slide up transition */
+  #{{ unique_id }}[data-transition="slide"] .rab__message {
+    transform: translateY(100%);
+  }
+  
+  #{{ unique_id }}[data-transition="slide"] .rab__message--active {
+    transform: translateY(0);
+  }
+  
+  #{{ unique_id }}[data-transition="slide"] .rab__message--exit {
+    transform: translateY(-100%);
+  }
+
+  /* Slide left transition */
+  #{{ unique_id }}[data-transition="slide-left"] .rab__message {
+    transform: translateX(100%);
+  }
+  
+  #{{ unique_id }}[data-transition="slide-left"] .rab__message--active {
+    transform: translateX(0);
+  }
+  
+  #{{ unique_id }}[data-transition="slide-left"] .rab__message--exit {
+    transform: translateX(-100%);
+  }
+
+  /*
+   * Link styling - inherits color and adds hover effect
+   */
+  #{{ unique_id }} .rab__link {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    width: 100%;
+  }
+
+  #{{ unique_id }} .rab__link:hover,
+  #{{ unique_id }} .rab__link:focus {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /*
+   * Message text with emoji support
+   */
+  #{{ unique_id }} .rab__text {
+    display: inline;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /*
+   * Navigation dots container
+   */
+  #{{ unique_id }} .
