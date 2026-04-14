@@ -1,0 +1,434 @@
+# Gift Wrap Option at Cart - Complete Shopify Snippet
+
+## File 1: README.md
+
+```markdown
+# Gift Wrap Option at Cart
+
+A production-ready Shopify snippet that adds an optional gift wrapping checkbox with a custom message field to your cart page. When enabled, it automatically adds a gift wrap product/fee to the cart via AJAX.
+
+## What It Solves
+
+- Allows customers to add gift wrapping to their order with a single click
+- Provides a custom gift message field for personalization
+- Automatically manages the gift wrap line item (add/remove) via AJAX
+- Stores the gift message as a line item property for easy order fulfillment
+- Works seamlessly with Shopify OS 2.0 themes
+
+## Features
+
+- ✅ AJAX-powered (no page reload)
+- ✅ Accessible (WCAG 2.1 compliant)
+- ✅ Mobile responsive
+- ✅ Customizable styling via CSS variables
+- ✅ Character limit on gift messages
+- ✅ Loading states and error handling
+- ✅ Works with cart drawers and cart pages
+- ✅ Prevents duplicate gift wrap items
+
+## Prerequisites
+
+Before using this snippet, you need to create a **Gift Wrap Product** in your Shopify admin:
+
+1. Go to **Products > Add product**
+2. Create a product with:
+   - **Title**: "Gift Wrap" (or your preferred name)
+   - **Price**: Your gift wrap fee (e.g., $5.00)
+   - **Inventory**: Set to "Don't track inventory"
+   - **Product type**: "Gift Wrap" (recommended for filtering)
+3. **Important**: Copy the **variant ID** from the URL when editing the product
+   - URL format: `/admin/products/PRODUCT_ID/variants/VARIANT_ID`
+
+## Installation
+
+### Step 1: Create the Snippet Files
+
+1. In your Shopify admin, go to **Online Store > Themes**
+2. Click **Actions > Edit code**
+3. Under **Snippets**, click **Add a new snippet**
+4. Name it `gift-wrap-option` and paste the Liquid code
+5. Under **Assets**, click **Add a new asset**
+6. Upload or create `gift-wrap-option.js` with the JavaScript code
+
+### Step 2: Include the Snippet
+
+Add the snippet to your cart template or section:
+
+**For cart page (`sections/main-cart.liquid` or `templates/cart.liquid`):**
+
+```liquid
+{% render 'gift-wrap-option',
+  gift_wrap_variant_id: 12345678901234,
+  gift_wrap_price: 5.00,
+  max_message_length: 150
+%}
+```
+
+**For cart drawer (if applicable):**
+
+```liquid
+{% render 'gift-wrap-option',
+  gift_wrap_variant_id: 12345678901234,
+  gift_wrap_price: 5.00,
+  position: 'drawer'
+%}
+```
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `gift_wrap_variant_id` | Number | **Yes** | - | The variant ID of your gift wrap product |
+| `gift_wrap_price` | Number | No | `0` | Display price for the gift wrap option |
+| `currency` | String | No | `shop.currency` | Currency code for price formatting |
+| `max_message_length` | Number | No | `200` | Maximum characters for gift message |
+| `checkbox_label` | String | No | `"Add gift wrapping"` | Label for the checkbox |
+| `message_label` | String | No | `"Gift message (optional)"` | Label for the message field |
+| `message_placeholder` | String | No | `"Enter your gift message..."` | Placeholder text |
+| `position` | String | No | `"page"` | Use `"drawer"` for cart drawer placement |
+| `show_price` | Boolean | No | `true` | Show/hide the price next to checkbox |
+| `collapsed_message` | Boolean | No | `true` | Collapse message field until checkbox is checked |
+| `enable_message` | Boolean | No | `true` | Enable/disable the gift message field |
+
+## Example Configurations
+
+### Basic Usage
+
+```liquid
+{% render 'gift-wrap-option',
+  gift_wrap_variant_id: 12345678901234
+%}
+```
+
+### Full Customization
+
+```liquid
+{% render 'gift-wrap-option',
+  gift_wrap_variant_id: 12345678901234,
+  gift_wrap_price: 7.99,
+  checkbox_label: "🎁 Add premium gift wrapping",
+  message_label: "Your personalized message",
+  message_placeholder: "Write something special...",
+  max_message_length: 100,
+  show_price: true,
+  collapsed_message: true,
+  enable_message: true
+%}
+```
+
+### Without Gift Message
+
+```liquid
+{% render 'gift-wrap-option',
+  gift_wrap_variant_id: 12345678901234,
+  gift_wrap_price: 3.00,
+  enable_message: false
+%}
+```
+
+## Styling Customization
+
+The snippet uses CSS custom properties for easy styling. Override these in your theme's CSS:
+
+```css
+:root {
+  --gift-wrap-primary: #2c6e49;
+  --gift-wrap-primary-hover: #1e4d34;
+  --gift-wrap-border: #d1d5db;
+  --gift-wrap-border-focus: #2c6e49;
+  --gift-wrap-bg: #ffffff;
+  --gift-wrap-bg-highlight: #f0fdf4;
+  --gift-wrap-text: #374151;
+  --gift-wrap-text-muted: #6b7280;
+  --gift-wrap-error: #dc2626;
+  --gift-wrap-radius: 8px;
+  --gift-wrap-font: inherit;
+}
+```
+
+## Order Fulfillment
+
+When a customer adds gift wrapping, the gift wrap line item will include:
+
+- **Line item property**: `_gift_message` containing the customer's message
+- **Line item property**: `_is_gift_wrap` set to `true` for easy identification
+
+Access these in your order confirmation emails or packing slips:
+
+```liquid
+{% for item in line_items %}
+  {% if item.properties._is_gift_wrap == 'true' %}
+    <p><strong>Gift Message:</strong> {{ item.properties._gift_message }}</p>
+  {% endif %}
+{% endfor %}
+```
+
+## Troubleshooting
+
+### Gift wrap not adding to cart
+
+1. Verify the `gift_wrap_variant_id` is correct
+2. Check that the gift wrap product is **Active** and **Available**
+3. Ensure the product is available on the **Online Store** sales channel
+
+### JavaScript errors
+
+1. Check browser console for specific errors
+2. Verify the JS file is loading (Network tab)
+3. Ensure no JS conflicts with other theme scripts
+
+### Styling issues
+
+1. Check for CSS specificity conflicts
+2. Use browser dev tools to inspect applied styles
+3. Add custom CSS with higher specificity if needed
+
+## Browser Support
+
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+- iOS Safari 12+
+- Android Chrome 60+
+
+## License
+
+MIT License - Free for commercial and personal use.
+```
+
+---
+
+## File 2: gift-wrap-option.liquid
+
+```liquid
+{% comment %}
+  Gift Wrap Option Snippet
+  ========================
+  Adds a gift wrapping checkbox and optional message field to the cart.
+  When checked, automatically adds a gift wrap product to the cart via AJAX.
+  
+  Usage:
+  {% render 'gift-wrap-option',
+    gift_wrap_variant_id: 12345678901234,
+    gift_wrap_price: 5.00
+  %}
+  
+  Required Parameters:
+  - gift_wrap_variant_id: The variant ID of your gift wrap product
+  
+  Optional Parameters:
+  - gift_wrap_price: Display price (default: 0)
+  - currency: Currency code (default: shop.currency)
+  - max_message_length: Max characters for message (default: 200)
+  - checkbox_label: Custom checkbox label
+  - message_label: Custom message field label
+  - message_placeholder: Custom placeholder text
+  - position: 'page' or 'drawer' (default: 'page')
+  - show_price: Show price next to checkbox (default: true)
+  - collapsed_message: Hide message until checked (default: true)
+  - enable_message: Enable message field (default: true)
+{% endcomment %}
+
+{% comment %} Parameter defaults and validation {% endcomment %}
+{%- liquid
+  assign gift_wrap_variant_id = gift_wrap_variant_id | default: nil
+  assign gift_wrap_price = gift_wrap_price | default: 0
+  assign currency = currency | default: shop.currency
+  assign max_message_length = max_message_length | default: 200
+  assign checkbox_label = checkbox_label | default: 'Add gift wrapping'
+  assign message_label = message_label | default: 'Gift message (optional)'
+  assign message_placeholder = message_placeholder | default: 'Enter your gift message here...'
+  assign position = position | default: 'page'
+  assign show_price = show_price | default: true
+  assign collapsed_message = collapsed_message | default: true
+  assign enable_message = enable_message | default: true
+  
+  # Check if gift wrap is already in cart
+  assign gift_wrap_in_cart = false
+  assign gift_wrap_line_item_key = nil
+  assign existing_gift_message = ''
+  
+  for item in cart.items
+    if item.variant_id == gift_wrap_variant_id
+      assign gift_wrap_in_cart = true
+      assign gift_wrap_line_item_key = item.key
+      if item.properties['_gift_message']
+        assign existing_gift_message = item.properties['_gift_message']
+      endif
+      break
+    endif
+  endfor
+-%}
+
+{% comment %} Early exit if no variant ID provided {% endcomment %}
+{%- if gift_wrap_variant_id == nil or gift_wrap_variant_id == blank -%}
+  {% if request.design_mode %}
+    <div style="padding: 1rem; background: #fee2e2; color: #991b1b; border-radius: 8px; margin: 1rem 0;">
+      <strong>Gift Wrap Snippet Error:</strong> Missing required parameter <code>gift_wrap_variant_id</code>
+    </div>
+  {% endif %}
+  {%- break -%}
+{%- endif -%}
+
+{% comment %} 
+  Generate unique ID for this instance
+  This allows multiple instances on the same page (e.g., cart page + mini cart)
+{% endcomment %}
+{%- assign unique_id = 'gift-wrap-' | append: gift_wrap_variant_id | append: '-' | append: position -%}
+
+{% comment %} Scoped CSS - Only loads once even with multiple instances {% endcomment %}
+{% style %}
+  /* CSS Custom Properties for easy theming */
+  .gift-wrap-option {
+    --gift-wrap-primary: #2c6e49;
+    --gift-wrap-primary-hover: #1e4d34;
+    --gift-wrap-border: #d1d5db;
+    --gift-wrap-border-focus: #2c6e49;
+    --gift-wrap-bg: #ffffff;
+    --gift-wrap-bg-highlight: #f0fdf4;
+    --gift-wrap-text: #374151;
+    --gift-wrap-text-muted: #6b7280;
+    --gift-wrap-error: #dc2626;
+    --gift-wrap-success: #16a34a;
+    --gift-wrap-radius: 8px;
+    --gift-wrap-font: inherit;
+  }
+
+  /* Main container */
+  .gift-wrap-option {
+    font-family: var(--gift-wrap-font);
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--gift-wrap-border);
+    border-radius: var(--gift-wrap-radius);
+    background: var(--gift-wrap-bg);
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .gift-wrap-option[data-active="true"] {
+    border-color: var(--gift-wrap-primary);
+    background: var(--gift-wrap-bg-highlight);
+  }
+
+  /* Checkbox wrapper - Uses flexbox for alignment */
+  .gift-wrap-option__checkbox-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+  }
+
+  /* Custom checkbox styling for consistent cross-browser appearance */
+  .gift-wrap-option__checkbox {
+    position: relative;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  .gift-wrap-option__checkbox input[type="checkbox"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+    margin: 0;
+  }
+
+  .gift-wrap-option__checkbox-visual {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--gift-wrap-border);
+    border-radius: 4px;
+    background: var(--gift-wrap-bg);
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gift-wrap-option__checkbox input:checked + .gift-wrap-option__checkbox-visual {
+    background: var(--gift-wrap-primary);
+    border-color: var(--gift-wrap-primary);
+  }
+
+  .gift-wrap-option__checkbox input:focus-visible + .gift-wrap-option__checkbox-visual {
+    outline: 2px solid var(--gift-wrap-primary);
+    outline-offset: 2px;
+  }
+
+  /* Checkmark icon - Only visible when checked */
+  .gift-wrap-option__checkmark {
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.15s ease;
+  }
+
+  .gift-wrap-option__checkbox input:checked + .gift-wrap-option__checkbox-visual .gift-wrap-option__checkmark {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Label content */
+  .gift-wrap-option__label-content {
+    flex: 1;
+  }
+
+  .gift-wrap-option__label-text {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--gift-wrap-text);
+    line-height: 1.4;
+  }
+
+  .gift-wrap-option__price {
+    font-weight: 600;
+    color: var(--gift-wrap-primary);
+  }
+
+  .gift-wrap-option__price--free {
+    color: var(--gift-wrap-success);
+  }
+
+  /* Gift icon decoration */
+  .gift-wrap-option__icon {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  /* Message field container */
+  .gift-wrap-option__message-container {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gift-wrap-border);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .gift-wrap-option__message-container[data-collapsed="true"] {
+    max-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .gift-wrap-option__message-container[data-collapsed="false"] {
+    max-height: 300px;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Message field label */
+  .gift-wrap-option
