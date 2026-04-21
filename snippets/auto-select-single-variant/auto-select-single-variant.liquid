@@ -1,0 +1,244 @@
+```liquid
+{% comment %}
+  Auto-Select Single Available Variant
+  ====================================
+  Automatically selects the only available variant when others are sold out.
+  
+  @param {Object} product - Required. The product object
+  @param {Boolean} enable_message - Show notification message (default: true)
+  @param {String} message_text - Custom message text
+  @param {Number} message_duration - Message display duration in ms (default: 5000)
+  @param {Boolean} respect_url_variant - Honor URL variant parameter (default: true)
+  @param {Boolean} enable_analytics_event - Dispatch custom events (default: true)
+  @param {String} selector_type - 'radios', 'select', or 'auto' (default: 'auto')
+  @param {String} form_id - Specific form ID to target
+  @param {Boolean} debug_mode - Enable console logging (default: false)
+  
+  Usage:
+  {% render 'auto-select-single-variant', product: product %}
+{% endcomment %}
+
+{% comment %} Guard clause: Exit if no product provided {% endcomment %}
+{% unless product %}
+  {% if debug_mode %}
+    <script>console.warn('[AutoVariant] No product object provided');</script>
+  {% endif %}
+  {% break %}
+{% endunless %}
+
+{% comment %} Set default parameter values {% endcomment %}
+{% assign enable_message = enable_message | default: true %}
+{% assign message_text = message_text | default: "We've selected the only available option for you" %}
+{% assign message_duration = message_duration | default: 5000 %}
+{% assign respect_url_variant = respect_url_variant | default: true %}
+{% assign enable_analytics_event = enable_analytics_event | default: true %}
+{% assign selector_type = selector_type | default: 'auto' %}
+{% assign form_id = form_id | default: '' %}
+{% assign debug_mode = debug_mode | default: false %}
+
+{% comment %} 
+  Pre-calculate available variants on the server side.
+  This is more reliable than client-side detection and reduces JS complexity.
+{% endcomment %}
+{% assign available_variants = product.variants | where: 'available', true %}
+{% assign available_count = available_variants.size %}
+{% assign total_variants = product.variants.size %}
+
+{% comment %} Only proceed if there's exactly one available variant out of multiple {% endcomment %}
+{% if available_count == 1 and total_variants > 1 %}
+  {% assign target_variant = available_variants.first %}
+  
+  {% comment %} 
+    Inline scoped styles - using a unique ID to prevent conflicts
+    with other instances or theme styles 
+  {% endcomment %}
+  <style>
+    .auto-variant-message {
+      /* Positioning and layout */
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      
+      /* Visual styling - uses CSS custom properties for theme compatibility */
+      background-color: var(--color-info-bg, #e8f4fd);
+      border: 1px solid var(--color-info-border, #b8daff);
+      border-radius: var(--border-radius, 4px);
+      color: var(--color-info-text, #004085);
+      
+      /* Typography */
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+    
+    .auto-variant-message--hidden {
+      /* Animate out gracefully */
+      opacity: 0;
+      transform: translateY(-0.5rem);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+    }
+    
+    .auto-variant-message__icon {
+      /* Info icon styling */
+      flex-shrink: 0;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    
+    .auto-variant-message__text {
+      flex-grow: 1;
+    }
+    
+    .auto-variant-message__variant {
+      /* Highlight the selected variant name */
+      font-weight: 600;
+    }
+    
+    .auto-variant-message__dismiss {
+      /* Dismiss button styling */
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      padding: 0.25rem;
+      cursor: pointer;
+      color: inherit;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    }
+    
+    .auto-variant-message__dismiss:hover,
+    .auto-variant-message__dismiss:focus {
+      opacity: 1;
+    }
+    
+    .auto-variant-message__dismiss:focus {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+    }
+    
+    /* Respect user's motion preferences */
+    @media (prefers-reduced-motion: reduce) {
+      .auto-variant-message--hidden {
+        transition: none;
+      }
+    }
+  </style>
+  
+  {% comment %} 
+    Notification message element - hidden by default, shown via JS
+    Uses aria-live for screen reader announcements 
+  {% endcomment %}
+  {% if enable_message %}
+    <div 
+      id="auto-variant-message-{{ product.id }}"
+      class="auto-variant-message auto-variant-message--hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      hidden
+    >
+      {% comment %} Info icon - inline SVG for no external dependencies {% endcomment %}
+      <svg 
+        class="auto-variant-message__icon" 
+        xmlns="http://www.w3.org/2000/svg" 
+        viewBox="0 0 20 20" 
+        fill="currentColor"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+      </svg>
+      
+      <span class="auto-variant-message__text">
+        {{ message_text }}
+        {% comment %} Show which variant was selected {% endcomment %}
+        {% unless target_variant.title == 'Default Title' %}
+          <span class="auto-variant-message__variant">({{ target_variant.title }})</span>
+        {% endunless %}
+      </span>
+      
+      {% comment %} Dismiss button for user control {% endcomment %}
+      <button 
+        type="button"
+        class="auto-variant-message__dismiss"
+        aria-label="Dismiss message"
+        onclick="this.parentElement.classList.add('auto-variant-message--hidden'); setTimeout(() => this.parentElement.hidden = true, 300);"
+      >
+        <svg 
+          width="16" 
+          height="16" 
+          viewBox="0 0 20 20" 
+          fill="currentColor"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  {% endif %}
+  
+  {% comment %} 
+    Main JavaScript logic
+    Wrapped in IIFE to avoid global scope pollution 
+  {% endcomment %}
+  <script>
+    (function() {
+      'use strict';
+      
+      {% comment %} Configuration object - passed from Liquid to JS {% endcomment %}
+      const CONFIG = {
+        productId: {{ product.id | json }},
+        productHandle: {{ product.handle | json }},
+        productTitle: {{ product.title | json }},
+        targetVariantId: {{ target_variant.id | json }},
+        targetVariant: {{ target_variant | json }},
+        enableMessage: {{ enable_message | json }},
+        messageDuration: {{ message_duration }},
+        respectUrlVariant: {{ respect_url_variant | json }},
+        enableAnalyticsEvent: {{ enable_analytics_event | json }},
+        selectorType: {{ selector_type | json }},
+        formId: {{ form_id | json }},
+        debugMode: {{ debug_mode | json }},
+        availableCount: {{ available_count }},
+        totalVariants: {{ total_variants }}
+      };
+      
+      {% comment %} Debug logger - only outputs when debug mode is enabled {% endcomment %}
+      const log = (...args) => {
+        if (CONFIG.debugMode) {
+          console.log('[AutoVariant]', ...args);
+        }
+      };
+      
+      log('Initialized with config:', CONFIG);
+      
+      /**
+       * Dispatches a custom event for external listeners (analytics, etc.)
+       * @param {string} eventName - Name of the event
+       * @param {Object} detail - Event detail payload
+       */
+      function dispatchEvent(eventName, detail) {
+        if (!CONFIG.enableAnalyticsEvent) return;
+        
+        const event = new CustomEvent(eventName, {
+          bubbles: true,
+          cancelable: true,
+          detail: detail
+        });
+        
+        document.dispatchEvent(event);
+        log('Dispatched event:', eventName, detail);
+      }
+      
+      /**
+       * Shows the notification message with animation
+       */
+      function showMessage() {
+        if (!CONFIG.enableMessage) return;
+        
+        const messageEl = document.getElementById(`auto-variant-message-${CONFIG.productId}`);
+        if (!messageEl) {
+          log('Message element not found');
