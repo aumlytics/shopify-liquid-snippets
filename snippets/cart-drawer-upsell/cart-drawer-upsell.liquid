@@ -1,0 +1,169 @@
+```liquid
+{% comment %}
+  Cart Drawer Upsell Product Recommendations
+  ==========================================
+  
+  Displays contextual product recommendations within the cart drawer
+  to increase average order value through cross-sells and upsells.
+  
+  @param {string} strategy - Recommendation strategy: 'shopify', 'tags', 'collection', 'manual'
+  @param {number} max_products - Maximum products to show (default: 4)
+  @param {string} heading - Section heading text
+  @param {string} heading_tag - HTML tag for heading (default: 'h3')
+  @param {number} min_cart_total - Minimum cart total in cents to show section
+  @param {number} max_cart_total - Maximum cart total in cents to show section
+  @param {string} exclude_tags - Comma-separated tags to exclude
+  @param {string} include_only_tags - Only show products with these tags
+  @param {string} collection_handle - Collection for 'collection' strategy
+  @param {string} manual_products - Product handles for 'manual' strategy
+  @param {boolean} show_price - Show product prices (default: true)
+  @param {boolean} show_compare_price - Show compare-at prices (default: true)
+  @param {boolean} show_vendor - Show product vendor (default: false)
+  @param {string} button_text - Add to cart button text (default: 'Add')
+  @param {boolean} quick_add - Enable AJAX add to cart (default: true)
+  @param {string} image_aspect_ratio - 'square', 'portrait', 'landscape', 'natural'
+  @param {string} layout - 'scroll', 'grid', 'stack'
+  @param {boolean} enable_animation - Enable animations (default: true)
+  @param {string} priority - Sort: 'price-asc', 'price-desc', 'bestselling', 'random'
+  
+  Usage:
+  {% render 'cart-drawer-upsell', strategy: 'tags', max_products: 4 %}
+{% endcomment %}
+
+{%- comment -%} Set default values for all parameters {%- endcomment -%}
+{%- liquid
+  assign strategy = strategy | default: 'shopify'
+  assign max_products = max_products | default: 4
+  assign heading = heading | default: 'Complete your order'
+  assign heading_tag = heading_tag | default: 'h3'
+  assign min_cart_total = min_cart_total | default: 0
+  assign max_cart_total = max_cart_total | default: nil
+  assign exclude_tags = exclude_tags | default: ''
+  assign include_only_tags = include_only_tags | default: ''
+  assign collection_handle = collection_handle | default: ''
+  assign manual_products = manual_products | default: ''
+  assign show_price = show_price | default: true
+  assign show_compare_price = show_compare_price | default: true
+  assign show_vendor = show_vendor | default: false
+  assign button_text = button_text | default: 'Add'
+  assign quick_add = quick_add | default: true
+  assign image_aspect_ratio = image_aspect_ratio | default: 'square'
+  assign layout = layout | default: 'scroll'
+  assign enable_animation = enable_animation | default: true
+  assign priority = priority | default: 'price-asc'
+-%}
+
+{%- comment -%} Early exit conditions {%- endcomment -%}
+{%- if cart.item_count == 0 -%}
+  {%- comment -%} Don't show recommendations on empty cart {%- endcomment -%}
+{%- elsif cart.total_price < min_cart_total -%}
+  {%- comment -%} Cart total below minimum threshold {%- endcomment -%}
+{%- elsif max_cart_total != nil and cart.total_price > max_cart_total -%}
+  {%- comment -%} Cart total above maximum threshold {%- endcomment -%}
+{%- else -%}
+
+{%- comment -%} Build array of cart product IDs to exclude from recommendations {%- endcomment -%}
+{%- liquid
+  assign cart_product_ids = ''
+  for item in cart.items
+    assign cart_product_ids = cart_product_ids | append: item.product.id | append: ','
+  endfor
+  assign cart_product_ids = cart_product_ids | split: ','
+-%}
+
+{%- comment -%} Build array of excluded tags {%- endcomment -%}
+{%- liquid
+  assign excluded_tag_array = exclude_tags | split: ','
+  assign included_tag_array = include_only_tags | split: ','
+-%}
+
+{%- comment -%} Initialize recommendation products array {%- endcomment -%}
+{%- liquid
+  assign upsell_products = '' | split: ','
+  assign found_count = 0
+-%}
+
+{%- comment -%} 
+  STRATEGY: TAGS
+  Find products that share tags with cart items (prefixed with 'upsell-')
+{%- endcomment -%}
+{%- if strategy == 'tags' -%}
+  {%- liquid
+    assign cart_upsell_tags = ''
+    
+    # Collect all upsell-prefixed tags from cart items
+    for item in cart.items
+      for tag in item.product.tags
+        if tag contains 'upsell-'
+          assign cart_upsell_tags = cart_upsell_tags | append: tag | append: ','
+        endif
+      endfor
+    endfor
+    
+    assign cart_upsell_tags = cart_upsell_tags | split: ',' | uniq
+    
+    # Search all products for matching tags
+    for tag in cart_upsell_tags
+      if found_count >= max_products
+        break
+      endif
+      
+      assign tag_handle = tag | handleize
+      assign tag_collection = collections[tag_handle]
+      
+      if tag_collection != blank
+        for product in tag_collection.products
+          if found_count >= max_products
+            break
+          endif
+          
+          # Skip if product is already in cart
+          assign product_id_string = product.id | append: ''
+          assign in_cart = false
+          for cart_id in cart_product_ids
+            if cart_id == product_id_string
+              assign in_cart = true
+              break
+            endif
+          endfor
+          
+          if in_cart
+            continue
+          endif
+          
+          # Skip if product is out of stock
+          unless product.available
+            continue
+          endunless
+          
+          # Check excluded tags
+          assign has_excluded_tag = false
+          for excluded_tag in excluded_tag_array
+            assign excluded_tag_clean = excluded_tag | strip
+            if product.tags contains excluded_tag_clean
+              assign has_excluded_tag = true
+              break
+            endif
+          endfor
+          
+          if has_excluded_tag
+            continue
+          endif
+          
+          # Check included tags filter
+          if include_only_tags != ''
+            assign has_included_tag = false
+            for included_tag in included_tag_array
+              assign included_tag_clean = included_tag | strip
+              if product.tags contains included_tag_clean
+                assign has_included_tag = true
+                break
+              endif
+            endfor
+            unless has_included_tag
+              continue
+            endunless
+          endif
+          
+          # Check if already added to recommendations
+          assign
