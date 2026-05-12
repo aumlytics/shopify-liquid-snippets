@@ -1,0 +1,153 @@
+```liquid
+{% comment %}
+  Buy X Get Y Discount Display Snippet
+  =====================================
+  
+  Purpose: Displays BOGO/BXGY promotion details on product pages with
+  real-time savings calculation and cart progress tracking.
+  
+  Author: Expert Shopify Developer
+  Version: 1.0.0
+  Compatibility: Shopify OS 2.0+ themes (Dawn, Horizon, Craft, etc.)
+  
+  Usage:
+  {% render 'buy-x-get-y-discount-display',
+    product: product,
+    promotion_type: 'bogo',
+    buy_quantity: 2,
+    get_quantity: 1,
+    discount_value: 100
+  %}
+{% endcomment %}
+
+{% comment %} ========== PARAMETER DEFAULTS ========== {% endcomment %}
+{% comment %} 
+  We use 'default' filter chains to ensure all parameters have safe values.
+  This prevents Liquid errors when merchants forget required parameters.
+{% endcomment %}
+
+{%- liquid
+  # Core product reference - required for price calculations
+  assign bxgy_product = product
+  
+  # Promotion structure parameters
+  assign bxgy_type = promotion_type | default: 'bxgy'
+  assign bxgy_buy_qty = buy_quantity | default: 2 | times: 1
+  assign bxgy_get_qty = get_quantity | default: 1 | times: 1
+  assign bxgy_discount_type = discount_type | default: 'percentage'
+  assign bxgy_discount_value = discount_value | default: 100 | times: 1
+  
+  # Display customization
+  assign bxgy_title = promotion_title | default: blank
+  assign bxgy_description = promotion_description | default: blank
+  assign bxgy_badge = badge_text | default: 'DEAL'
+  assign bxgy_color = theme_color | default: '#008060'
+  
+  # Feature toggles
+  assign bxgy_show_savings = show_savings | default: true
+  assign bxgy_show_progress = show_progress | default: true
+  assign bxgy_show_countdown = show_countdown | default: false
+  assign bxgy_end_date = end_date | default: blank
+  
+  # Product eligibility scope
+  assign bxgy_eligible = eligible_products | default: 'current'
+  assign bxgy_collection_handle = eligible_collection | default: blank
+  
+  # Generate unique ID for this instance (supports multiple promos per page)
+  assign bxgy_instance_id = 'bxgy-' | append: bxgy_product.id | append: '-' | append: bxgy_type
+-%}
+
+{% comment %} ========== VALIDATION ========== {% endcomment %}
+{% comment %}
+  Exit early if essential data is missing. This prevents broken UI
+  and provides clear debugging signals in the rendered HTML.
+{% endcomment %}
+
+{%- unless bxgy_product and bxgy_product.available -%}
+  {% comment %} Product unavailable - no promotion to show {% endcomment %}
+  {%- break -%}
+{%- endunless -%}
+
+{%- if bxgy_buy_qty < 1 -%}
+  <!-- BXGY Error: buy_quantity must be at least 1 -->
+  {%- break -%}
+{%- endif -%}
+
+{% comment %} ========== PRICE CALCULATIONS ========== {% endcomment %}
+{% comment %}
+  Calculate all monetary values server-side where possible to ensure
+  the initial render is accurate. JavaScript will handle cart-aware updates.
+{% endcomment %}
+
+{%- liquid
+  # Get the current product price (respects variant selection)
+  assign bxgy_unit_price = bxgy_product.selected_or_first_available_variant.price
+  assign bxgy_compare_price = bxgy_product.selected_or_first_available_variant.compare_at_price
+  
+  # Calculate total quantities needed for the deal
+  assign bxgy_total_qty = bxgy_buy_qty | plus: bxgy_get_qty
+  
+  # Calculate full price without discount
+  assign bxgy_full_price = bxgy_unit_price | times: bxgy_total_qty
+  
+  # Calculate the discount amount on the "get" items
+  if bxgy_discount_type == 'percentage'
+    # Percentage discount: discount_value is percentage (e.g., 50 = 50%)
+    assign bxgy_get_item_discount = bxgy_unit_price | times: bxgy_discount_value | divided_by: 100
+  elsif bxgy_discount_type == 'fixed_amount'
+    # Fixed amount: discount_value is cents (e.g., 1000 = $10.00)
+    assign bxgy_get_item_discount = bxgy_discount_value | times: 100
+  else
+    # 'free' type: 100% off
+    assign bxgy_get_item_discount = bxgy_unit_price
+  endif
+  
+  # Total savings = discount per item × number of discounted items
+  assign bxgy_total_savings = bxgy_get_item_discount | times: bxgy_get_qty
+  
+  # Ensure savings don't exceed the full price of get items
+  assign bxgy_max_savings = bxgy_unit_price | times: bxgy_get_qty
+  if bxgy_total_savings > bxgy_max_savings
+    assign bxgy_total_savings = bxgy_max_savings
+  endif
+  
+  # Final discounted total
+  assign bxgy_final_price = bxgy_full_price | minus: bxgy_total_savings
+  
+  # Calculate percentage saved for display
+  assign bxgy_savings_percent = bxgy_total_savings | times: 100 | divided_by: bxgy_full_price
+-%}
+
+{% comment %} ========== AUTO-GENERATE TITLES ========== {% endcomment %}
+{% comment %}
+  Generate human-readable promotion text if not provided.
+  This ensures merchants get sensible defaults without extra configuration.
+{% endcomment %}
+
+{%- liquid
+  if bxgy_title == blank
+    case bxgy_type
+      when 'bogo'
+        if bxgy_discount_value == 100 or bxgy_discount_type == 'free'
+          assign bxgy_title = 'Buy ' | append: bxgy_buy_qty | append: ' Get ' | append: bxgy_get_qty | append: ' FREE!'
+        else
+          assign bxgy_title = 'Buy ' | append: bxgy_buy_qty | append: ' Get ' | append: bxgy_get_qty | append: ' at ' | append: bxgy_discount_value | append: '% Off!'
+        endif
+      when 'bundle'
+        assign bxgy_title = 'Bundle Deal: Buy ' | append: bxgy_total_qty | append: ' & Save!'
+      when 'tiered'
+        assign bxgy_title = 'Buy ' | append: bxgy_buy_qty | append: '+ and Save ' | append: bxgy_discount_value | append: '%!'
+      else
+        assign bxgy_title = 'Special Offer: Buy ' | append: bxgy_buy_qty | append: ' Get ' | append: bxgy_get_qty | append: ' Discounted!'
+    endcase
+  endif
+  
+  if bxgy_description == blank
+    assign bxgy_description = 'Add ' | append: bxgy_total_qty | append: ' items to your cart to unlock this deal.'
+  endif
+-%}
+
+{% comment %} ========== SCOPED STYLES ========== {% endcomment %}
+{% comment %}
+  All styles are scoped to prevent conflicts with theme CSS.
+  CSS custom properties allow easy theme-level
