@@ -1,0 +1,146 @@
+```liquid
+{% comment %}
+  Cart Goal Progress Bar with Tiered Rewards
+  ==========================================
+  
+  A gamified progress bar that incentivizes higher order values by showing
+  customers how close they are to unlocking tiered rewards.
+  
+  Why this approach:
+  - Inline CSS ensures styles load immediately without FOUC (Flash of Unstyled Content)
+  - Scoped classes prevent conflicts with theme styles
+  - Progressive enhancement: works without JS, enhanced with JS
+  - Semantic HTML with ARIA attributes for screen readers
+  - CSS custom properties allow easy theming while keeping specificity low
+  
+  @param {number} tier1_threshold - First reward threshold amount
+  @param {string} tier1_reward - First reward description
+  @param {string} tier1_icon - Emoji/icon for first reward
+  ... (see README for full parameter list)
+{% endcomment %}
+
+{% comment %} === PARAMETER DEFAULTS === {% endcomment %}
+{% comment %} 
+  We use Liquid's default filter extensively to allow partial configuration.
+  This means merchants can specify only what they want to change.
+{% endcomment %}
+
+{%- liquid
+  # Tier 1 (always enabled by default)
+  assign t1_threshold = tier1_threshold | default: 50
+  assign t1_reward = tier1_reward | default: 'Free Shipping'
+  assign t1_icon = tier1_icon | default: '🚚'
+  
+  # Tier 2-5 (disabled by default, threshold of 0 means disabled)
+  assign t2_threshold = tier2_threshold | default: 0
+  assign t2_reward = tier2_reward | default: ''
+  assign t2_icon = tier2_icon | default: '🎁'
+  
+  assign t3_threshold = tier3_threshold | default: 0
+  assign t3_reward = tier3_reward | default: ''
+  assign t3_icon = tier3_icon | default: '💰'
+  
+  assign t4_threshold = tier4_threshold | default: 0
+  assign t4_reward = tier4_reward | default: ''
+  assign t4_icon = tier4_icon | default: '⭐'
+  
+  assign t5_threshold = tier5_threshold | default: 0
+  assign t5_reward = tier5_reward | default: ''
+  assign t5_icon = tier5_icon | default: '👑'
+  
+  # Styling options
+  assign color_bar = bar_color | default: '#4CAF50'
+  assign color_bar_bg = bar_bg_color | default: '#e0e0e0'
+  assign color_text = text_color | default: '#333333'
+  assign color_success = success_color | default: '#2E7D32'
+  
+  # Display options
+  assign is_compact = compact_mode | default: false
+  assign is_minimal = minimal_mode | default: false
+  assign show_markers = show_milestones | default: true
+  assign enable_animation = animate | default: true
+  assign show_unlocked = show_unlocked_message | default: true
+  
+  # Technical options
+  assign prefix = class_prefix | default: 'cgpb'
+  assign currency_sym = currency_symbol | default: cart.currency.symbol
+  
+  # Calculate cart total in money format (cents to dollars)
+  # Using cart.total_price which is in cents
+  assign cart_total_cents = cart.total_price
+  assign cart_total = cart_total_cents | divided_by: 100.0
+  
+  # Build tiers array by checking which are enabled
+  # We need to track: threshold, reward text, icon, and if it's unlocked
+  assign tier_count = 0
+  assign max_threshold = 0
+  
+  # Count active tiers and find max threshold
+  if t1_threshold > 0
+    assign tier_count = tier_count | plus: 1
+    if t1_threshold > max_threshold
+      assign max_threshold = t1_threshold
+    endif
+  endif
+  
+  if t2_threshold > 0
+    assign tier_count = tier_count | plus: 1
+    if t2_threshold > max_threshold
+      assign max_threshold = t2_threshold
+    endif
+  endif
+  
+  if t3_threshold > 0
+    assign tier_count = tier_count | plus: 1
+    if t3_threshold > max_threshold
+      assign max_threshold = t3_threshold
+    endif
+  endif
+  
+  if t4_threshold > 0
+    assign tier_count = tier_count | plus: 1
+    if t4_threshold > max_threshold
+      assign max_threshold = t4_threshold
+    endif
+  endif
+  
+  if t5_threshold > 0
+    assign tier_count = tier_count | plus: 1
+    if t5_threshold > max_threshold
+      assign max_threshold = t5_threshold
+    endif
+  endif
+  
+  # Calculate progress percentage (capped at 100%)
+  if max_threshold > 0
+    assign progress_raw = cart_total | divided_by: max_threshold | times: 100
+    assign progress_percent = progress_raw | at_most: 100
+  else
+    assign progress_percent = 0
+  endif
+  
+  # Determine current tier status
+  assign t1_unlocked = false
+  assign t2_unlocked = false
+  assign t3_unlocked = false
+  assign t4_unlocked = false
+  assign t5_unlocked = false
+  assign all_unlocked = false
+  assign next_tier_threshold = 0
+  assign next_tier_reward = ''
+  assign amount_needed = 0
+  
+  # Check each tier's unlock status
+  if t1_threshold > 0 and cart_total >= t1_threshold
+    assign t1_unlocked = true
+  endif
+  
+  if t2_threshold > 0 and cart_total >= t2_threshold
+    assign t2_unlocked = true
+  endif
+  
+  if t3_threshold > 0 and cart_total >= t3_threshold
+    assign t3_unlocked = true
+  endif
+  
+  if t4_threshold >
