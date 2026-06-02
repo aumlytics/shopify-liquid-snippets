@@ -1,0 +1,426 @@
+# Quick View Product Modal - Complete Production-Ready Solution
+
+## File 1: README.md
+
+```markdown
+# Quick View Product Modal
+
+A production-ready Shopify snippet that enables customers to preview product details, select variants, and add to cart directly from collection pages without navigating away.
+
+## What It Solves
+
+- **Reduces friction**: Customers can quickly view product details without leaving the collection page
+- **Increases conversions**: Add-to-cart functionality directly in the modal reduces steps to purchase
+- **Improves UX**: Variant selection, image gallery, and full product info in an accessible overlay
+- **Maintains context**: Customers don't lose their place while browsing collections
+
+## Features
+
+- ✅ Full variant selection with dynamic price updates
+- ✅ Image gallery with thumbnail navigation
+- ✅ Add to cart with AJAX (no page reload)
+- ✅ Quantity selector
+- ✅ Stock availability display
+- ✅ Mobile-responsive design
+- ✅ Full keyboard navigation (Tab, Escape, Arrow keys)
+- ✅ WCAG 2.1 AA accessible (ARIA labels, focus management, screen reader support)
+- ✅ Works with OS 2.0 themes (Dawn, Horizon, Craft)
+- ✅ No external dependencies
+- ✅ Lazy-loaded product data for performance
+
+## Installation
+
+### Step 1: Add the Snippet File
+
+Copy `quick-view-modal-product.liquid` to your theme's `snippets/` folder.
+
+### Step 2: Add the JavaScript File
+
+Copy `snippet.js` contents and either:
+
+**Option A**: Add to your theme's `assets/` folder as `quick-view-modal.js` and include in `theme.liquid`:
+```liquid
+<script src="{{ 'quick-view-modal.js' | asset_url }}" defer></script>
+```
+
+**Option B**: Include inline in `theme.liquid` before `</body>`:
+```liquid
+<script>
+  // Paste snippet.js contents here
+</script>
+```
+
+### Step 3: Add Modal Container to Theme
+
+Add this line to `layout/theme.liquid` just before `</body>`:
+```liquid
+{% render 'quick-view-modal-product' %}
+```
+
+### Step 4: Add Quick View Buttons to Product Cards
+
+In your product card snippet (usually `snippets/card-product.liquid` or `snippets/product-card.liquid`), add:
+
+```liquid
+{% render 'quick-view-modal-product',
+  trigger_only: true,
+  product: product,
+  button_style: 'primary'
+%}
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `trigger_only` | Boolean | `false` | When `true`, only renders the trigger button (use in product cards) |
+| `product` | Product | `nil` | Product object (required when `trigger_only: true`) |
+| `button_style` | String | `'primary'` | Button style: `'primary'`, `'secondary'`, `'minimal'`, `'icon-only'` |
+| `button_text` | String | `'Quick View'` | Custom button text |
+| `show_vendor` | Boolean | `true` | Show product vendor in modal |
+| `show_sku` | Boolean | `false` | Show variant SKU in modal |
+| `show_share` | Boolean | `true` | Show social share buttons |
+| `enable_video` | Boolean | `true` | Enable video media in gallery |
+| `image_size` | String | `'large'` | Main image size: `'small'`, `'medium'`, `'large'` |
+| `max_thumbnails` | Number | `5` | Maximum thumbnails to display |
+
+## Example Usage
+
+### Basic Implementation (Collection Page)
+
+```liquid
+{% for product in collection.products %}
+  <div class="product-card">
+    <a href="{{ product.url }}">
+      <img src="{{ product.featured_image | img_url: '400x' }}" alt="{{ product.title }}">
+      <h3>{{ product.title }}</h3>
+      <p>{{ product.price | money }}</p>
+    </a>
+    
+    {% render 'quick-view-modal-product',
+      trigger_only: true,
+      product: product
+    %}
+  </div>
+{% endfor %}
+```
+
+### Icon-Only Button
+
+```liquid
+{% render 'quick-view-modal-product',
+  trigger_only: true,
+  product: product,
+  button_style: 'icon-only'
+%}
+```
+
+### Custom Styled Button
+
+```liquid
+{% render 'quick-view-modal-product',
+  trigger_only: true,
+  product: product,
+  button_style: 'secondary',
+  button_text: 'Preview'
+%}
+```
+
+### Full Modal with Custom Options
+
+```liquid
+{% render 'quick-view-modal-product',
+  show_vendor: false,
+  show_sku: true,
+  show_share: false,
+  max_thumbnails: 8
+%}
+```
+
+## Customization
+
+### CSS Custom Properties
+
+Override these CSS variables in your theme's stylesheet:
+
+```css
+:root {
+  --qv-modal-bg: #ffffff;
+  --qv-overlay-bg: rgba(0, 0, 0, 0.6);
+  --qv-primary-color: #000000;
+  --qv-secondary-color: #666666;
+  --qv-border-color: #e5e5e5;
+  --qv-button-bg: #000000;
+  --qv-button-text: #ffffff;
+  --qv-button-hover-bg: #333333;
+  --qv-error-color: #dc3545;
+  --qv-success-color: #28a745;
+  --qv-font-family: inherit;
+  --qv-border-radius: 8px;
+  --qv-transition-speed: 0.3s;
+}
+```
+
+### Events
+
+The modal dispatches custom events you can listen for:
+
+```javascript
+// Modal opened
+document.addEventListener('quickview:opened', (e) => {
+  console.log('Quick view opened for:', e.detail.productId);
+});
+
+// Modal closed
+document.addEventListener('quickview:closed', () => {
+  console.log('Quick view closed');
+});
+
+// Product added to cart
+document.addEventListener('quickview:added', (e) => {
+  console.log('Added to cart:', e.detail);
+});
+
+// Variant changed
+document.addEventListener('quickview:variant-changed', (e) => {
+  console.log('Variant changed:', e.detail.variant);
+});
+```
+
+## Browser Support
+
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+- iOS Safari 12+
+- Chrome for Android 60+
+
+## Troubleshooting
+
+### Modal not opening
+1. Ensure the modal container is added to `theme.liquid`
+2. Check browser console for JavaScript errors
+3. Verify product handle is being passed correctly
+
+### Styles conflicting with theme
+1. Increase CSS specificity by wrapping in additional class
+2. Check for `!important` declarations in theme CSS
+3. Adjust CSS custom properties to match theme
+
+### Add to cart not working
+1. Verify your theme's cart API endpoint (`/cart/add.js`)
+2. Check if theme uses custom cart functionality
+3. Look for CORS or CSP errors in console
+
+## Performance Notes
+
+- Product data is fetched via AJAX only when modal opens (lazy loading)
+- Images use native lazy loading
+- Modal DOM is reused for all products (single instance)
+- CSS is scoped and doesn't affect theme styles
+
+## License
+
+MIT License - Free to use in personal and commercial projects.
+```
+
+---
+
+## File 2: quick-view-modal-product.liquid
+
+```liquid
+{% comment %}
+  Quick View Product Modal
+  ========================
+  A production-ready modal for previewing products on collection pages.
+  
+  Parameters:
+    - trigger_only: boolean (default: false) - Only render trigger button
+    - product: product object - Required when trigger_only is true
+    - button_style: string - 'primary', 'secondary', 'minimal', 'icon-only'
+    - button_text: string (default: 'Quick View')
+    - show_vendor: boolean (default: true)
+    - show_sku: boolean (default: false)
+    - show_share: boolean (default: true)
+    - enable_video: boolean (default: true)
+    - image_size: string - 'small', 'medium', 'large'
+    - max_thumbnails: number (default: 5)
+{% endcomment %}
+
+{%- liquid
+  # Set defaults for all parameters
+  assign button_style = button_style | default: 'primary'
+  assign button_text = button_text | default: 'Quick View'
+  assign show_vendor = show_vendor | default: true
+  assign show_sku = show_sku | default: false
+  assign show_share = show_share | default: true
+  assign enable_video = enable_video | default: true
+  assign image_size = image_size | default: 'large'
+  assign max_thumbnails = max_thumbnails | default: 5
+  
+  # Determine image dimensions based on size parameter
+  case image_size
+    when 'small'
+      assign main_image_size = '400x400'
+      assign thumb_size = '60x60'
+    when 'medium'
+      assign main_image_size = '600x600'
+      assign thumb_size = '80x80'
+    else
+      assign main_image_size = '800x800'
+      assign thumb_size = '100x100'
+  endcase
+-%}
+
+{% if trigger_only %}
+  {%- comment -%}
+    TRIGGER BUTTON ONLY
+    Rendered inside product cards to open the modal.
+    Uses data attributes to pass product info to JavaScript.
+  {%- endcomment -%}
+  
+  <button
+    type="button"
+    class="qv-trigger qv-trigger--{{ button_style }}"
+    data-quick-view-trigger
+    data-product-handle="{{ product.handle }}"
+    data-product-url="{{ product.url }}"
+    aria-label="{{ 'Quick view' | append: ' ' | append: product.title }}"
+    aria-haspopup="dialog"
+  >
+    {%- if button_style == 'icon-only' -%}
+      {%- comment -%} Eye icon for icon-only style {%- endcomment -%}
+      <svg class="qv-trigger__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+      <span class="visually-hidden">{{ button_text }} {{ product.title }}</span>
+    {%- else -%}
+      <svg class="qv-trigger__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+      <span class="qv-trigger__text">{{ button_text }}</span>
+    {%- endif -%}
+  </button>
+  
+{% else %}
+  {%- comment -%}
+    FULL MODAL MARKUP
+    Rendered once in theme.liquid. Content populated via JavaScript.
+    Structure follows ARIA dialog pattern for accessibility.
+  {%- endcomment -%}
+  
+  {%- comment -%} Inline Scoped Styles {%- endcomment -%}
+  <style>
+    /* =============================================
+       CSS CUSTOM PROPERTIES (Themeable)
+       Override these in your theme stylesheet
+       ============================================= */
+    :root {
+      --qv-modal-bg: #ffffff;
+      --qv-overlay-bg: rgba(0, 0, 0, 0.6);
+      --qv-primary-color: #000000;
+      --qv-secondary-color: #666666;
+      --qv-muted-color: #999999;
+      --qv-border-color: #e5e5e5;
+      --qv-button-bg: #000000;
+      --qv-button-text: #ffffff;
+      --qv-button-hover-bg: #333333;
+      --qv-button-disabled-bg: #cccccc;
+      --qv-error-color: #dc3545;
+      --qv-success-color: #28a745;
+      --qv-sale-color: #dc3545;
+      --qv-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --qv-border-radius: 8px;
+      --qv-border-radius-sm: 4px;
+      --qv-transition-speed: 0.3s;
+      --qv-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      --qv-z-index: 9999;
+    }
+
+    /* =============================================
+       ACCESSIBILITY: Visually Hidden Helper
+       ============================================= */
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    /* =============================================
+       TRIGGER BUTTON STYLES
+       Multiple style variants for different use cases
+       ============================================= */
+    .qv-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      font-family: var(--qv-font-family);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1;
+      text-decoration: none;
+      border: none;
+      border-radius: var(--qv-border-radius-sm);
+      cursor: pointer;
+      transition: all var(--qv-transition-speed) ease;
+    }
+
+    .qv-trigger:focus-visible {
+      outline: 2px solid var(--qv-button-bg);
+      outline-offset: 2px;
+    }
+
+    /* Primary style - solid background */
+    .qv-trigger--primary {
+      background-color: var(--qv-button-bg);
+      color: var(--qv-button-text);
+    }
+
+    .qv-trigger--primary:hover {
+      background-color: var(--qv-button-hover-bg);
+    }
+
+    /* Secondary style - outlined */
+    .qv-trigger--secondary {
+      background-color: transparent;
+      color: var(--qv-primary-color);
+      border: 1px solid var(--qv-border-color);
+    }
+
+    .qv-trigger--secondary:hover {
+      border-color: var(--qv-primary-color);
+      background-color: var(--qv-primary-color);
+      color: var(--qv-button-text);
+    }
+
+    /* Minimal style - text only with underline on hover */
+    .qv-trigger--minimal {
+      background-color: transparent;
+      color: var(--qv-secondary-color);
+      padding: 6px 0;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .qv-trigger--minimal:hover {
+      color: var(--qv-primary-color);
+    }
+
+    /* Icon only style - circular button */
+    .qv-trigger--icon-only {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      background-color: var(--qv-modal-bg);
+      color: var(
