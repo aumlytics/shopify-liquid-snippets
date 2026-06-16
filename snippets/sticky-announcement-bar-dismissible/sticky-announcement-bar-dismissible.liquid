@@ -1,0 +1,161 @@
+```liquid
+{% comment %}
+  Sticky Dismissible Announcement Bar with Cookie Memory
+  ======================================================
+  
+  A production-ready announcement bar that:
+  - Sticks to top/bottom of viewport while scrolling
+  - Can be dismissed by users with a close button
+  - Remembers dismissal via cookies
+  - Is fully accessible (ARIA, keyboard navigation)
+  
+  @param {String} message - The announcement text (required)
+  @param {Boolean} enabled - Toggle bar visibility (default: true)
+  @param {String} link_url - Optional URL for a CTA link
+  @param {String} link_text - Text for the CTA link (default: 'Learn more')
+  @param {Number} cookie_days - Days to remember dismissal, 0 = session (default: 7)
+  @param {String} cookie_name - Cookie identifier (default: 'announcement_dismissed')
+  @param {String} bg_color - Background color (default: '#000000')
+  @param {String} text_color - Text color (default: '#ffffff')
+  @param {String} link_color - Link color (default: '#ffffff')
+  @param {String} font_size - Font size (default: '14px')
+  @param {String} padding - Inner padding (default: '12px 20px')
+  @param {Number} z_index - Stack order (default: 9999)
+  @param {String} position - 'top' or 'bottom' (default: 'top')
+  @param {Boolean} show_close - Show close button (default: true)
+  @param {String} animation - 'slide', 'fade', or 'none' (default: 'slide')
+  @param {String} id - Unique identifier (default: 'announcement-bar')
+  
+  Usage:
+  {% render 'sticky-announcement-bar-dismissible',
+    message: 'Free shipping on orders over $50!',
+    link_url: '/pages/shipping',
+    link_text: 'Learn more',
+    cookie_days: 7
+  %}
+{% endcomment %}
+
+{% comment %} === Parameter Defaults === {% endcomment %}
+{% comment %} Using `default` filter to set fallback values for all parameters {% endcomment %}
+{%- liquid
+  assign bar_enabled = enabled | default: true
+  assign bar_message = message | default: ''
+  assign bar_link_url = link_url | default: ''
+  assign bar_link_text = link_text | default: 'Learn more'
+  assign bar_cookie_days = cookie_days | default: 7
+  assign bar_cookie_name = cookie_name | default: 'announcement_dismissed'
+  assign bar_bg_color = bg_color | default: '#000000'
+  assign bar_text_color = text_color | default: '#ffffff'
+  assign bar_link_color = link_color | default: '#ffffff'
+  assign bar_font_size = font_size | default: '14px'
+  assign bar_padding = padding | default: '12px 20px'
+  assign bar_z_index = z_index | default: 9999
+  assign bar_position = position | default: 'top'
+  assign bar_show_close = show_close | default: true
+  assign bar_animation = animation | default: 'slide'
+  assign bar_id = id | default: 'announcement-bar'
+-%}
+
+{% comment %} === Early Exit Conditions === {% endcomment %}
+{% comment %} Don't render anything if disabled or no message provided {% endcomment %}
+{%- unless bar_enabled and bar_message != blank -%}
+  {%- break -%}
+{%- endunless -%}
+
+{% comment %} === Generate Unique Identifiers === {% endcomment %}
+{% comment %} Using the id parameter to create scoped selectors and prevent conflicts {% endcomment %}
+{%- capture bar_class -%}announcement-bar--{{ bar_id }}{%- endcapture -%}
+
+{% comment %} === Inline Styles === {% endcomment %}
+{% comment %} 
+  Styles are scoped to this specific instance using the unique class.
+  This prevents conflicts with theme styles and allows multiple bars.
+{% endcomment %}
+<style>
+  /* === Base Container Styles === */
+  .{{ bar_class }} {
+    /* Position: fixed to viewport, with configurable top/bottom */
+    position: fixed;
+    {{ bar_position }}: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    
+    /* Visual styling from parameters */
+    background-color: {{ bar_bg_color }};
+    color: {{ bar_text_color }};
+    font-size: {{ bar_font_size }};
+    padding: {{ bar_padding }};
+    
+    /* Stack order - high default to appear above most elements */
+    z-index: {{ bar_z_index }};
+    
+    /* Flexbox for content alignment */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    
+    /* Smooth font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    
+    /* Box sizing for predictable dimensions */
+    box-sizing: border-box;
+    
+    /* Text alignment for content */
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* === Animation: Initial Hidden State === */
+  {% case bar_animation %}
+    {% when 'slide' %}
+      .{{ bar_class }}[aria-hidden="true"] {
+        {% if bar_position == 'top' %}
+          transform: translateY(-100%);
+        {% else %}
+          transform: translateY(100%);
+        {% endif %}
+        visibility: hidden;
+      }
+      .{{ bar_class }}[aria-hidden="false"] {
+        transform: translateY(0);
+        visibility: visible;
+        transition: transform 0.3s ease-out, visibility 0.3s;
+      }
+      .{{ bar_class }}.is-dismissing {
+        {% if bar_position == 'top' %}
+          transform: translateY(-100%);
+        {% else %}
+          transform: translateY(100%);
+        {% endif %}
+        transition: transform 0.3s ease-in, visibility 0.3s;
+      }
+    {% when 'fade' %}
+      .{{ bar_class }}[aria-hidden="true"] {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .{{ bar_class }}[aria-hidden="false"] {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.3s ease-out, visibility 0.3s;
+      }
+      .{{ bar_class }}.is-dismissing {
+        opacity: 0;
+        transition: opacity 0.3s ease-in, visibility 0.3s;
+      }
+    {% when 'none' %}
+      .{{ bar_class }}[aria-hidden="true"] {
+        display: none;
+      }
+  {% endcase %}
+
+  /* === Message Content Wrapper === */
+  .{{ bar_class }}__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
