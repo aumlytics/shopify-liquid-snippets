@@ -1,0 +1,188 @@
+```liquid
+{% comment %}
+  Size Chart Modal Popup
+  =====================
+  A production-ready, accessible size chart modal for Shopify stores.
+  
+  Usage:
+    {% render 'size-chart-modal', product: product %}
+  
+  Parameters:
+    - product: Product object for metafield data
+    - trigger_text: Link text (default: 'Size Guide')
+    - trigger_icon: Show icon (default: true)
+    - modal_title: Modal header text (default: 'Size Chart')
+    - show_unit_toggle: Show in/cm toggle (default: true)
+    - default_unit: Starting unit 'in' or 'cm' (default: 'in')
+    - chart_type: 'clothing', 'shoes', 'rings', 'custom' (default: 'clothing')
+    - custom_headers: Comma-separated headers for custom charts
+    - custom_rows: Pipe-separated rows, comma-separated cells
+    - show_how_to_measure: Show instructions (default: true)
+    - trigger_class: Additional CSS classes
+    - theme: 'light' or 'dark' (default: 'light')
+{% endcomment %}
+
+{%- liquid
+  # Set defaults using Liquid's default filter
+  # This ensures the snippet works even if no parameters are passed
+  assign trigger_text = trigger_text | default: 'Size Guide'
+  assign trigger_icon = trigger_icon | default: true
+  assign modal_title = modal_title | default: 'Size Chart'
+  assign show_unit_toggle = show_unit_toggle | default: true
+  assign default_unit = default_unit | default: 'in'
+  assign chart_type = chart_type | default: 'clothing'
+  assign show_how_to_measure = show_how_to_measure | default: true
+  assign trigger_class = trigger_class | default: ''
+  assign theme = theme | default: 'light'
+  
+  # Generate unique ID to support multiple instances on same page
+  assign unique_id = 'size-chart-' | append: product.id | append: '-' | append: 'now' | date: '%N'
+  
+  # Check for product metafield data first (allows per-product customization)
+  assign metafield_data = product.metafields.custom.size_chart_data.value
+  assign has_metafield = false
+  if metafield_data != blank
+    assign has_metafield = true
+  endif
+-%}
+
+{%- style -%}
+  /* 
+   * Size Chart Modal Styles
+   * Scoped with specific selectors to avoid conflicts with theme CSS
+   * Using CSS custom properties for easy theming
+   */
+  
+  /* CSS Custom Properties - Can be overridden in theme CSS */
+  .size-chart-modal-wrapper {
+    --scm-primary: {% if theme == 'dark' %}#ffffff{% else %}#000000{% endif %};
+    --scm-secondary: {% if theme == 'dark' %}#a0a0a0{% else %}#666666{% endif %};
+    --scm-background: {% if theme == 'dark' %}#1a1a1a{% else %}#ffffff{% endif %};
+    --scm-surface: {% if theme == 'dark' %}#2a2a2a{% else %}#f8f8f8{% endif %};
+    --scm-border: {% if theme == 'dark' %}#333333{% else %}#e5e5e5{% endif %};
+    --scm-hover: {% if theme == 'dark' %}#333333{% else %}#f5f5f5{% endif %};
+    --scm-accent: {% if theme == 'dark' %}#ffffff{% else %}#000000{% endif %};
+    --scm-overlay: rgba(0, 0, 0, 0.6);
+    --scm-radius: 8px;
+    --scm-radius-sm: 4px;
+    --scm-font: inherit;
+    --scm-transition: 200ms ease;
+    --scm-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Trigger Link - Styled as an accessible button-like link */
+  .size-chart-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    font-family: var(--scm-font);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--scm-secondary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color var(--scm-transition);
+  }
+
+  .size-chart-trigger:hover,
+  .size-chart-trigger:focus {
+    color: var(--scm-primary);
+  }
+
+  .size-chart-trigger:focus {
+    outline: 2px solid var(--scm-accent);
+    outline-offset: 2px;
+  }
+
+  .size-chart-trigger:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .size-chart-trigger:focus-visible {
+    outline: 2px solid var(--scm-accent);
+    outline-offset: 2px;
+  }
+
+  .size-chart-trigger svg {
+    flex-shrink: 0;
+  }
+
+  /* Modal Overlay - Covers entire viewport */
+  .size-chart-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--scm-overlay);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--scm-transition), visibility var(--scm-transition);
+  }
+
+  .size-chart-overlay[data-open="true"] {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .size-chart-overlay,
+    .size-chart-modal {
+      transition: none;
+    }
+  }
+
+  /* Modal Container */
+  .size-chart-modal {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    max-height: calc(100vh - 32px);
+    background: var(--scm-background);
+    border-radius: var(--scm-radius);
+    box-shadow: var(--scm-shadow);
+    transform: scale(0.95) translateY(10px);
+    transition: transform var(--scm-transition);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .size-chart-overlay[data-open="true"] .size-chart-modal {
+    transform: scale(1) translateY(0);
+  }
+
+  /* Modal Header */
+  .size-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--scm-border);
+    flex-shrink: 0;
+  }
+
+  .size-chart-title {
+    margin: 0;
+    font-family: var(--scm-font);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--scm-primary);
+  }
+
+  /* Close Button - Large touch target for accessibility */
+  .size-chart-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: -8px -8px -8px 0;
+    padding: 0;
