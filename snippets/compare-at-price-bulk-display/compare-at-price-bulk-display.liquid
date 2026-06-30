@@ -1,0 +1,223 @@
+```liquid
+{% comment %}
+  Compare At Price Bulk Display
+  =============================
+  
+  A production-ready snippet for displaying compare-at pricing with savings
+  calculations. Handles multiple variants with different compare prices gracefully.
+  
+  Required Parameters:
+    - product: The Shopify product object
+  
+  Optional Parameters:
+    - current_variant: Specific variant (defaults to selected_or_first_available_variant)
+    - show_badge: Boolean to show sale badge (default: true)
+    - badge_style: 'percentage', 'amount', or 'both' (default: 'percentage')
+    - show_savings_text: Boolean to show savings text (default: true)
+    - price_class: Additional CSS class for styling hooks
+    - show_range: Show price range for multi-variant products (default: true)
+    - locale_aware: Use shop locale for formatting (default: true)
+    - compare_label: Accessible label for compare price (default: 'Regular price')
+    - sale_label: Accessible label for sale price (default: 'Sale price')
+    - hide_cents_if_zero: Hide .00 cents display (default: false)
+  
+  Usage:
+    {% render 'compare-at-price-bulk-display', product: product %}
+    
+  Author: Expert Shopify Developer
+  Version: 1.0.0
+{% endcomment %}
+
+{%- comment -%} Parameter defaults and validation {%- endcomment -%}
+{%- liquid
+  assign current_variant = current_variant | default: product.selected_or_first_available_variant
+  assign show_badge = show_badge | default: true
+  assign badge_style = badge_style | default: 'percentage'
+  assign show_savings_text = show_savings_text | default: true
+  assign price_class = price_class | default: ''
+  assign show_range = show_range | default: true
+  assign locale_aware = locale_aware | default: true
+  assign compare_label = compare_label | default: 'Regular price'
+  assign sale_label = sale_label | default: 'Sale price'
+  assign hide_cents_if_zero = hide_cents_if_zero | default: false
+  
+  comment
+    Determine if we're dealing with a single variant or need to calculate ranges.
+    This is important for products with many variants at different price points.
+  endcomment
+  assign has_single_variant = false
+  if product.variants.size == 1
+    assign has_single_variant = true
+  endif
+  
+  comment
+    Calculate price range data for multi-variant products.
+    We need to find min/max for both regular and compare-at prices.
+  endcomment
+  assign price_min = product.price_min
+  assign price_max = product.price_max
+  assign compare_at_price_min = product.compare_at_price_min
+  assign compare_at_price_max = product.compare_at_price_max
+  
+  comment
+    Determine if product is on sale by checking if ANY variant has a compare_at_price
+    greater than its actual price. This prevents false positives.
+  endcomment
+  assign product_on_sale = false
+  assign variant_on_sale = false
+  
+  if product.compare_at_price_max > product.price_min
+    assign product_on_sale = true
+  endif
+  
+  if current_variant.compare_at_price > current_variant.price
+    assign variant_on_sale = true
+  endif
+  
+  comment
+    Calculate savings for the current variant (used for badges and savings text).
+    We calculate both percentage and absolute amount for flexibility.
+  endcomment
+  assign savings_amount = 0
+  assign savings_percentage = 0
+  
+  if variant_on_sale
+    assign savings_amount = current_variant.compare_at_price | minus: current_variant.price
+    assign savings_percentage = savings_amount | times: 100.0 | divided_by: current_variant.compare_at_price | round
+  endif
+  
+  comment
+    Check if prices vary across variants - determines if we show a range.
+    This handles the common case of size-based pricing (S, M, L, XL).
+  endcomment
+  assign prices_vary = false
+  if price_min != price_max
+    assign prices_vary = true
+  endif
+  
+  assign compare_prices_vary = false
+  if compare_at_price_min != compare_at_price_max and compare_at_price_min != blank
+    assign compare_prices_vary = true
+  endif
+  
+  comment
+    Generate a unique ID for this instance to scope JavaScript interactions.
+    Essential when multiple instances exist on the same page (collection grids).
+  endcomment
+  assign unique_id = 'cap-' | append: product.id | append: '-' | append: current_variant.id
+-%}
+
+{%- comment -%} 
+  Scoped CSS - Only output once per page using a capture and unless check.
+  This prevents duplicate CSS when the snippet is rendered multiple times.
+{%- endcomment -%}
+{%- unless cap_styles_loaded -%}
+  {%- assign cap_styles_loaded = true -%}
+  <style>
+    /*
+     * Compare At Price Bulk Display - Scoped Styles
+     * Using BEM-like naming convention with 'cap-' prefix for isolation
+     */
+    
+    /* CSS Custom Properties for easy theming */
+    .cap-price-wrapper {
+      --cap-sale-color: #b91c1c;
+      --cap-compare-color: #6b7280;
+      --cap-badge-bg: #b91c1c;
+      --cap-badge-color: #ffffff;
+      --cap-badge-radius: 4px;
+      --cap-font-size-price: 1.125rem;
+      --cap-font-size-compare: 0.875rem;
+      --cap-font-size-badge: 0.75rem;
+      --cap-font-size-savings: 0.8125rem;
+      --cap-spacing: 0.5rem;
+      --cap-line-height: 1.4;
+      
+      display: flex;
+      flex-direction: column;
+      gap: var(--cap-spacing);
+      font-family: inherit;
+      line-height: var(--cap-line-height);
+    }
+    
+    /* Main price row containing sale price, compare price, and badge */
+    .cap-price-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: var(--cap-spacing);
+    }
+    
+    /* Current/sale price styling */
+    .cap-price-current {
+      font-size: var(--cap-font-size-price);
+      font-weight: 600;
+      color: inherit;
+    }
+    
+    /* Sale state - price turns red to indicate discount */
+    .cap-price-current--sale {
+      color: var(--cap-sale-color);
+    }
+    
+    /* Compare-at (original/regular) price styling */
+    .cap-price-compare {
+      font-size: var(--cap-font-size-compare);
+      color: var(--cap-compare-color);
+      text-decoration: line-through;
+      /* 
+       * Using text-decoration-thickness for better visibility
+       * on high-DPI displays
+       */
+      text-decoration-thickness: 1px;
+    }
+    
+    /* Sale badge styling */
+    .cap-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.125rem 0.5rem;
+      background-color: var(--cap-badge-bg);
+      color: var(--cap-badge-color);
+      font-size: var(--cap-font-size-badge);
+      font-weight: 600;
+      border-radius: var(--cap-badge-radius);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      white-space: nowrap;
+      /*
+       * Slight negative margin to visually align with text baseline
+       * without affecting document flow
+       */
+      margin-top: -0.125rem;
+    }
+    
+    /* Savings text below price */
+    .cap-savings-text {
+      font-size: var(--cap-font-size-savings);
+      color: var(--cap-sale-color);
+      font-weight: 500;
+    }
+    
+    /* Price range separator styling (e.g., "$10 - $20") */
+    .cap-price-separator {
+      margin: 0 0.125rem;
+    }
+    
+    /* 
+     * Visually hidden class for screen reader text
+     * Provides context without visual clutter
+     */
+    .cap-sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    
+    /* Unit price display (for products sold by weight/volume) */
