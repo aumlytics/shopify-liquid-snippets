@@ -1,0 +1,212 @@
+```liquid
+{% comment %}
+  Product Bundle Discount Display
+  ================================
+  Displays dynamic bundle pricing with savings calculations.
+  
+  @param {Array} bundle_products - Array of product objects
+  @param {String} bundle_product_handles - Comma-separated product handles (alternative)
+  @param {String} bundle_title - Bundle section title
+  @param {String} bundle_description - Optional description
+  @param {String} discount_type - 'percentage' or 'fixed'
+  @param {String} discount_tiers - Tier config as 'qty:discount,qty:discount'
+  @param {Number} max_bundle_items - Maximum bundle items
+  @param {Boolean} show_individual_prices - Show per-item prices
+  @param {Boolean} show_savings_badge - Show savings indicator
+  @param {String} primary_color - Primary accent color
+  @param {String} sale_color - Sale/discount color
+  @param {Boolean} enable_quick_add - Enable bundle add-to-cart
+  @param {Boolean} preselect_all - Pre-select all items
+  @param {Product} current_product - Current product context
+  @param {Boolean} show_current_product - Include current product in bundle
+{% endcomment %}
+
+{% liquid
+  # Set defaults for all parameters
+  assign bundle_title = bundle_title | default: 'Bundle & Save'
+  assign bundle_description = bundle_description | default: ''
+  assign discount_type = discount_type | default: 'percentage'
+  assign discount_tiers = discount_tiers | default: '2:10,3:15'
+  assign max_bundle_items = max_bundle_items | default: 6
+  assign show_individual_prices = show_individual_prices | default: true
+  assign show_savings_badge = show_savings_badge | default: true
+  assign primary_color = primary_color | default: '#000000'
+  assign sale_color = sale_color | default: '#e63946'
+  assign enable_quick_add = enable_quick_add | default: true
+  assign preselect_all = preselect_all | default: false
+  assign current_product = current_product | default: product
+  assign show_current_product = show_current_product | default: true
+  
+  # Generate unique ID for this bundle instance
+  assign bundle_id = 'bundle-' | append: current_product.id | append: '-' | append: 'now' | date: '%N'
+  
+  # Build products array from handles if not provided directly
+  assign products_array = bundle_products
+  
+  if bundle_product_handles != blank and products_array == nil
+    assign handle_array = bundle_product_handles | split: ','
+    assign products_array = '' | split: ''
+    for handle in handle_array
+      assign clean_handle = handle | strip
+      assign found_product = all_products[clean_handle]
+      if found_product != blank and found_product.available
+        assign products_array = products_array | concat: found_product | compact
+      endif
+    endfor
+  endif
+  
+  # Exit early if no products to display
+  if products_array == blank or products_array.size == 0
+    assign products_array = nil
+  endif
+  
+  # Parse discount tiers into a format we can use
+  # We'll pass this to JavaScript for calculations
+  assign tier_array = discount_tiers | split: ','
+  
+  # Get lowest tier for initial display
+  assign lowest_tier_qty = 999
+  assign lowest_tier_discount = 0
+  for tier in tier_array
+    assign tier_parts = tier | split: ':'
+    assign tier_qty = tier_parts[0] | plus: 0
+    assign tier_discount = tier_parts[1] | plus: 0
+    if tier_qty < lowest_tier_qty
+      assign lowest_tier_qty = tier_qty
+      assign lowest_tier_discount = tier_discount
+    endif
+  endfor
+%}
+
+{% if products_array != nil and products_array.size > 0 %}
+  {%- comment -%}
+    Scoped CSS - Using custom properties for easy theming
+    All styles are scoped to .product-bundle to avoid conflicts
+  {%- endcomment -%}
+  <style>
+    .product-bundle {
+      /* Custom properties for easy theming */
+      --bundle-primary: {{ primary_color }};
+      --bundle-sale: {{ sale_color }};
+      --bundle-radius: 8px;
+      --bundle-spacing: 1rem;
+      --bundle-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      --bundle-transition: 0.2s ease;
+      
+      font-family: inherit;
+      max-width: 100%;
+      margin: 2rem 0;
+      padding: var(--bundle-spacing);
+      background: #fafafa;
+      border-radius: var(--bundle-radius);
+    }
+    
+    /* Header styles */
+    .product-bundle__header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .product-bundle__title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      color: var(--bundle-primary);
+    }
+    
+    .product-bundle__description {
+      color: #666;
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    
+    /* Tier indicator showing current discount level */
+    .product-bundle__tier-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .product-bundle__tier {
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: #e0e0e0;
+      color: #666;
+      transition: var(--bundle-transition);
+    }
+    
+    .product-bundle__tier--active {
+      background: var(--bundle-sale);
+      color: white;
+    }
+    
+    .product-bundle__tier--available {
+      background: #fff;
+      border: 1px solid var(--bundle-sale);
+      color: var(--bundle-sale);
+    }
+    
+    /* Product grid layout */
+    .product-bundle__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--bundle-spacing);
+      margin-bottom: 1.5rem;
+    }
+    
+    @media (min-width: 768px) {
+      .product-bundle__grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+    }
+    
+    /* Individual product card */
+    .product-bundle__card {
+      position: relative;
+      background: white;
+      border-radius: var(--bundle-radius);
+      padding: 0.75rem;
+      box-shadow: var(--bundle-shadow);
+      transition: var(--bundle-transition);
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    
+    .product-bundle__card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .product-bundle__card:focus-within {
+      outline: 2px solid var(--bundle-primary);
+      outline-offset: 2px;
+    }
+    
+    .product-bundle__card--selected {
+      border-color: var(--bundle-primary);
+    }
+    
+    .product-bundle__card--current {
+      border-color: var(--bundle-sale);
+    }
+    
+    /* Checkbox styling */
+    .product-bundle__checkbox-wrapper {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      z-index: 2;
+    }
+    
+    .product-bundle__checkbox {
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      accent-color: var(--bundle-primary);
+    }
+    
+    /* Visually hidden but accessible label */
