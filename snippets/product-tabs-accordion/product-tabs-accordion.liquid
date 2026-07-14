@@ -1,0 +1,169 @@
+```liquid
+{% comment %}
+  Product Tabs & Accordion Toggle
+  ================================
+  A responsive, accessible component for organizing product information.
+  
+  @param {Object} product - The product object (required)
+  @param {Boolean} show_description - Show description tab (default: true)
+  @param {Boolean} show_specifications - Show specifications tab (default: true)
+  @param {Boolean} show_shipping - Show shipping info tab (default: true)
+  @param {Boolean} show_reviews - Show reviews tab (default: true)
+  @param {String} default_open - Which tab to open by default (default: 'description')
+  @param {Number} mobile_breakpoint - Breakpoint for accordion mode (default: 768)
+  @param {Number} animation_duration - Transition duration in ms (default: 300)
+  @param {Boolean} allow_multiple_open - Allow multiple accordions open (default: false)
+  @param {String} description_title - Custom description title
+  @param {String} specifications_title - Custom specifications title
+  @param {String} shipping_title - Custom shipping title
+  @param {String} reviews_title - Custom reviews title
+  @param {String} specs_metafield_namespace - Metafield namespace for specs
+  @param {String} specs_metafield_key - Metafield key for specs
+  @param {String} shipping_metafield_namespace - Metafield namespace for shipping
+  @param {String} shipping_metafield_key - Metafield key for shipping
+  @param {String} custom_class - Additional CSS class
+{% endcomment %}
+
+{% comment %} 
+  Parameter defaults - using Liquid's default filter for clean fallbacks
+  We set these at the top for easy maintenance and clear documentation
+{% endcomment %}
+{%- liquid
+  assign show_description = show_description | default: true
+  assign show_specifications = show_specifications | default: true
+  assign show_shipping = show_shipping | default: true
+  assign show_reviews = show_reviews | default: true
+  assign default_open = default_open | default: 'description'
+  assign mobile_breakpoint = mobile_breakpoint | default: 768
+  assign animation_duration = animation_duration | default: 300
+  assign allow_multiple_open = allow_multiple_open | default: false
+  assign description_title = description_title | default: 'Description'
+  assign specifications_title = specifications_title | default: 'Specifications'
+  assign shipping_title = shipping_title | default: 'Shipping & Returns'
+  assign reviews_title = reviews_title | default: 'Reviews'
+  assign specs_metafield_namespace = specs_metafield_namespace | default: 'custom'
+  assign specs_metafield_key = specs_metafield_key | default: 'specifications'
+  assign shipping_metafield_namespace = shipping_metafield_namespace | default: 'custom'
+  assign shipping_metafield_key = shipping_metafield_key | default: 'shipping_info'
+  assign custom_class = custom_class | default: ''
+-%}
+
+{% comment %}
+  Generate unique ID for this instance - critical for accessibility and 
+  multiple instances on the same page (e.g., quick view modals)
+{% endcomment %}
+{%- assign unique_id = 'pta-' | append: product.id | append: '-' | append: 'now' | date: '%N' -%}
+
+{% comment %}
+  Build tabs array dynamically - this allows us to easily add/remove tabs
+  and maintain proper indexing for ARIA attributes
+{% endcomment %}
+{%- assign tabs = '' | split: ',' -%}
+{%- if show_description and product.description != blank -%}
+  {%- assign tabs = tabs | push: 'description' -%}
+{%- endif -%}
+{%- if show_specifications -%}
+  {%- assign tabs = tabs | push: 'specifications' -%}
+{%- endif -%}
+{%- if show_shipping -%}
+  {%- assign tabs = tabs | push: 'shipping' -%}
+{%- endif -%}
+{%- if show_reviews -%}
+  {%- assign tabs = tabs | push: 'reviews' -%}
+{%- endif -%}
+
+{% comment %}
+  Early return if no tabs to display - prevents empty markup
+{% endcomment %}
+{%- if tabs.size == 0 -%}
+  {%- break -%}
+{%- endif -%}
+
+{% comment %}
+  Fetch metafield data for specifications and shipping
+  We check multiple possible formats for maximum compatibility
+{% endcomment %}
+{%- assign specs_metafield = product.metafields[specs_metafield_namespace][specs_metafield_key] -%}
+{%- assign shipping_metafield = product.metafields[shipping_metafield_namespace][shipping_metafield_key] -%}
+
+{% comment %}
+  =============================================================================
+  INLINE STYLES
+  =============================================================================
+  Scoped CSS using unique wrapper class prevents style conflicts.
+  CSS custom properties enable easy theme customization without editing snippet.
+{% endcomment %}
+<style>
+  /* 
+   * CSS Custom Properties for easy theming
+   * These can be overridden in your theme's CSS
+   */
+  .product-tabs-accordion {
+    --pta-primary-color: #121212;
+    --pta-secondary-color: #666666;
+    --pta-border-color: #e5e5e5;
+    --pta-background-color: #ffffff;
+    --pta-hover-color: #f5f5f5;
+    --pta-border-radius: 4px;
+    --pta-font-family: inherit;
+    --pta-transition-duration: {{ animation_duration }}ms;
+    --pta-content-padding: 1.5rem;
+    --pta-tab-padding: 1rem 1.5rem;
+    
+    font-family: var(--pta-font-family);
+    width: 100%;
+    margin: 2rem 0;
+  }
+
+  /* 
+   * =========================================
+   * DESKTOP TABS LAYOUT
+   * =========================================
+   * Classic horizontal tabs for larger screens
+   */
+  .pta-tabs {
+    display: block;
+  }
+
+  .pta-tabs__list {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--pta-border-color);
+    gap: 0;
+    flex-wrap: wrap; /* Prevents overflow on medium screens */
+  }
+
+  .pta-tabs__tab {
+    margin: 0;
+    padding: 0;
+    /* Negative margin creates overlap effect with active state */
+    margin-bottom: -1px;
+  }
+
+  .pta-tabs__button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--pta-tab-padding);
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom-color: var(--pta-border-color);
+    color: var(--pta-secondary-color);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--pta-transition-duration) ease;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  .pta-tabs__button:hover {
+    color: var(--pta-primary-color);
+    background-color: var(--pta-hover-color);
+  }
+
+  /* 
+   * Focus styles - critical for keyboard navigation
+   * Using
