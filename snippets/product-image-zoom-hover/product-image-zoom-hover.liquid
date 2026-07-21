@@ -1,0 +1,182 @@
+```liquid
+{% comment %}
+  Product Image Zoom on Hover
+  ===========================
+  A production-ready zoom snippet for Shopify OS 2.0 themes.
+  
+  @param {Object} image - Required. Shopify image object
+  @param {Number} zoom_level - Optional. Magnification level (default: 2.5)
+  @param {String} alt_text - Optional. Image alt text (default: "Product image")
+  @param {Number} image_index - Optional. Unique index for multiple instances
+  @param {String} container_class - Optional. Additional CSS classes
+  @param {Boolean} enable_hint - Optional. Show zoom hint (default: true)
+  @param {String} hint_text - Optional. Desktop hint text
+  @param {String} mobile_hint_text - Optional. Mobile hint text
+  @param {Boolean} lazy_load - Optional. Enable lazy loading (default: true)
+  @param {String} aspect_ratio - Optional. Image aspect ratio
+  @param {String} zoom_position - Optional. "cursor" or "center"
+  @param {String} border_radius - Optional. CSS border-radius value
+  
+  Usage:
+  {% render 'product-image-zoom-hover', image: product.featured_image, zoom_level: 2.5 %}
+{% endcomment %}
+
+{% comment %} === PARAMETER DEFAULTS === {% endcomment %}
+{% comment %} 
+  We use `default` filters with fallback checks to ensure all parameters 
+  have sensible values even when not provided by the user.
+{% endcomment %}
+
+{%- liquid
+  assign zoom_level = zoom_level | default: 2.5
+  assign alt_text = alt_text | default: image.alt | default: 'Product image'
+  assign image_index = image_index | default: 1
+  assign container_class = container_class | default: ''
+  assign enable_hint = enable_hint | default: true
+  assign hint_text = hint_text | default: 'Hover to zoom'
+  assign mobile_hint_text = mobile_hint_text | default: 'Touch to zoom'
+  assign lazy_load = lazy_load | default: true
+  assign aspect_ratio = aspect_ratio | default: 'natural'
+  assign zoom_position = zoom_position | default: 'cursor'
+  assign border_radius = border_radius | default: '0'
+-%}
+
+{% comment %} === VALIDATION === {% endcomment %}
+{% comment %} 
+  Guard clause: If no image is provided, render nothing.
+  This prevents broken HTML and JavaScript errors.
+{% endcomment %}
+
+{%- unless image -%}
+  {% comment %} No image provided - exit gracefully {% endcomment %}
+  {%- break -%}
+{%- endunless -%}
+
+{% comment %} 
+  Generate a unique ID for this instance.
+  This allows multiple zoom components on the same page without conflicts.
+{% endcomment %}
+{%- assign unique_id = 'pz-' | append: image.id | append: '-' | append: image_index -%}
+
+{% comment %} === ASPECT RATIO CALCULATION === {% endcomment %}
+{% comment %}
+  Calculate padding-bottom for aspect ratio container.
+  This technique (padding hack) maintains aspect ratio before image loads,
+  preventing layout shift (CLS) which improves Core Web Vitals.
+{% endcomment %}
+
+{%- case aspect_ratio -%}
+  {%- when 'square' -%}
+    {%- assign aspect_padding = '100%' -%}
+  {%- when 'portrait' -%}
+    {%- assign aspect_padding = '125%' -%}
+  {%- when 'landscape' -%}
+    {%- assign aspect_padding = '75%' -%}
+  {%- else -%}
+    {% comment %} Natural aspect ratio based on actual image dimensions {% endcomment %}
+    {%- if image.aspect_ratio and image.aspect_ratio > 0 -%}
+      {%- assign aspect_padding = 100.0 | divided_by: image.aspect_ratio | append: '%' -%}
+    {%- else -%}
+      {%- assign aspect_padding = '100%' -%}
+    {%- endif -%}
+{%- endcase -%}
+
+{% comment %} === RESPONSIVE IMAGE SRCSET === {% endcomment %}
+{% comment %}
+  Generate srcset for responsive images.
+  We provide multiple sizes so the browser can choose the optimal one.
+  The zoom functionality uses the largest size for the zoomed view.
+{% endcomment %}
+
+{%- capture srcset -%}
+  {{ image | image_url: width: 400 }} 400w,
+  {{ image | image_url: width: 600 }} 600w,
+  {{ image | image_url: width: 800 }} 800w,
+  {{ image | image_url: width: 1000 }} 1000w,
+  {{ image | image_url: width: 1200 }} 1200w,
+  {{ image | image_url: width: 1600 }} 1600w,
+  {{ image | image_url: width: 2000 }} 2000w
+{%- endcapture -%}
+
+{% comment %} 
+  High-resolution source for zoom view.
+  We use the largest available size to ensure crisp zoomed images.
+{% endcomment %}
+{%- assign zoom_src = image | image_url: width: 2000 -%}
+{%- assign default_src = image | image_url: width: 800 -%}
+
+{% comment %} === INLINE STYLES === {% endcomment %}
+{% comment %}
+  Styles are scoped using the unique ID to prevent conflicts with theme CSS.
+  We use CSS custom properties (variables) for easy customization.
+  The `style` block only renders once per page using Shopify's built-in deduplication.
+{% endcomment %}
+
+{%- style -%}
+  /* 
+   * Product Zoom Styles - Scoped to prevent theme conflicts
+   * Using !important sparingly where theme overrides are likely
+   */
+  
+  /* CSS Custom Properties for easy theming */
+  .pz-container {
+    --pz-transition-speed: 0.3s;
+    --pz-hint-bg: rgba(0, 0, 0, 0.7);
+    --pz-hint-color: #ffffff;
+    --pz-hint-padding: 8px 12px;
+    --pz-hint-font-size: 12px;
+    --pz-hint-border-radius: 4px;
+    --pz-focus-color: #005fcc;
+    --pz-cursor-zoom-in: zoom-in;
+    --pz-cursor-zoom-out: crosshair;
+  }
+  
+  /* Main container - relative positioning for absolute children */
+  .pz-container {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    display: block;
+    background-color: #f5f5f5; /* Placeholder color while loading */
+  }
+  
+  /* Aspect ratio wrapper using padding-bottom technique */
+  .pz-aspect-wrapper {
+    position: relative;
+    width: 100%;
+    height: 0;
+    overflow: hidden;
+  }
+  
+  /* Base image - fills container, maintains quality */
+  .pz-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    cursor: var(--pz-cursor-zoom-in);
+    transform-origin: center center;
+    transition: transform var(--pz-transition-speed) ease-out;
+    /* Prevent image drag which interferes with touch zoom */
+    -webkit-user-drag: none;
+    user-select: none;
+    /* GPU acceleration for smooth transforms */
+    will-change: transform;
+  }
+  
+  /* Zoomed state - cursor changes to indicate zoom out */
+  .pz-container.pz-zoomed .pz-image {
+    cursor: var(--pz-cursor-zoom-out);
+  }
+  
+  /* Zoom hint overlay */
+  .pz-hint {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--pz-hint-bg);
+    color: var(--p
