@@ -1,0 +1,195 @@
+```liquid
+{% comment %}
+  ============================================================================
+  ADD TO CART QUANTITY SELECTOR WITH PLUS/MINUS BUTTONS
+  ============================================================================
+  
+  A production-ready quantity selector that replaces the default browser
+  number input with accessible, styled plus/minus buttons.
+  
+  @param {Product} product - The product object (optional, for product pages)
+  @param {Variant} variant - The variant object (optional, for inventory)
+  @param {LineItem} line_item - Cart line item (optional, for cart mode)
+  @param {Boolean} cart_mode - Enable cart-specific functionality (default: false)
+  @param {Number} initial_quantity - Starting quantity (default: 1)
+  @param {Number} min_quantity - Minimum allowed quantity (default: 1)
+  @param {Number} max_quantity - Maximum allowed quantity (default: 99)
+  @param {Boolean} show_label - Show "Quantity" label (default: true)
+  @param {String} size - 'small', 'medium', 'large' (default: 'medium')
+  @param {String} style - 'default', 'minimal', 'rounded' (default: 'default')
+  @param {Boolean} enable_inventory_tracking - Respect inventory (default: true)
+  @param {String} input_name - Name attribute for input (default: 'quantity')
+  @param {String} input_id - Custom ID for input element
+  
+  @example Basic usage on product page:
+    {% render 'add-to-cart-quantity-selector',
+      product: product,
+      variant: product.selected_or_first_available_variant
+    %}
+  
+  @example Cart line item:
+    {% render 'add-to-cart-quantity-selector',
+      line_item: item,
+      cart_mode: true,
+      input_name: 'updates[]'
+    %}
+{% endcomment %}
+
+{%- comment -%} ============================================================
+  PARAMETER DEFAULTS & VALIDATION
+  We use liquid's default filter with explicit nil checks to ensure
+  reliable behavior across different theme contexts.
+============================================================ {%- endcomment -%}
+
+{%- liquid
+  # Core display parameters
+  assign show_label = show_label | default: true
+  assign size = size | default: 'medium'
+  assign style = style | default: 'default'
+  
+  # Quantity limits - these may be overridden by inventory
+  assign min_qty = min_quantity | default: 1 | at_least: 1
+  assign max_qty = max_quantity | default: 99
+  assign current_qty = initial_quantity | default: 1 | at_least: min_qty
+  
+  # Feature flags
+  assign cart_mode = cart_mode | default: false
+  assign enable_inventory = enable_inventory_tracking | default: true
+  
+  # Form input configuration
+  assign field_name = input_name | default: 'quantity'
+  
+  # Generate a unique ID for this instance to prevent conflicts
+  # when multiple selectors are on the same page
+  assign unique_id = 'now' | date: '%N' | slice: -6, 6
+  assign selector_id = input_id | default: 'qty-' | append: unique_id
+  
+  # Cart-specific setup
+  if cart_mode and line_item
+    assign current_qty = line_item.quantity
+    assign line_item_key = line_item.key
+    assign target_variant = line_item.variant
+    assign target_product = line_item.product
+  else
+    assign line_item_key = nil
+    assign target_variant = variant
+    assign target_product = product
+  endif
+-%}
+
+{%- comment -%} ============================================================
+  INVENTORY TRACKING LOGIC
+  We calculate the actual maximum quantity based on inventory settings.
+  This respects Shopify's "Continue selling when out of stock" setting.
+============================================================ {%- endcomment -%}
+
+{%- liquid
+  assign inventory_max = max_qty
+  
+  if enable_inventory and target_variant
+    # Check if inventory is tracked for this variant
+    if target_variant.inventory_management == 'shopify'
+      # Check the inventory policy
+      # 'deny' = Stop selling when out of stock
+      # 'continue' = Continue selling when out of stock
+      if target_variant.inventory_policy == 'deny'
+        assign inventory_max = target_variant.inventory_quantity | at_most: max_qty
+        
+        # If inventory is at or below minimum, we still show the selector
+        # but the plus button will be disabled
+        if inventory_max < min_qty
+          assign inventory_max = min_qty
+        endif
+      endif
+    endif
+  endif
+  
+  # Final max is the lesser of configured max and inventory
+  assign effective_max = inventory_max | at_most: max_qty
+  
+  # Ensure current quantity doesn't exceed max
+  assign current_qty = current_qty | at_most: effective_max
+  
+  # Determine initial button states
+  assign minus_disabled = false
+  assign plus_disabled = false
+  
+  if current_qty <= min_qty
+    assign minus_disabled = true
+  endif
+  
+  if current_qty >= effective_max
+    assign plus_disabled = true
+  endif
+-%}
+
+{%- comment -%} ============================================================
+  SCOPED CSS STYLES
+  All styles are scoped with the .qty-selector prefix to prevent
+  conflicts with theme styles. CSS custom properties allow easy
+  customization without editing this file.
+============================================================ {%- endcomment -%}
+
+<style>
+  /* ========================================
+     CSS CUSTOM PROPERTIES (Theming Layer)
+     Override these in your theme CSS to customize appearance
+     ======================================== */
+  .qty-selector {
+    --qty-btn-bg: #f5f5f5;
+    --qty-btn-bg-hover: #e8e8e8;
+    --qty-btn-bg-active: #d4d4d4;
+    --qty-btn-color: #333333;
+    --qty-btn-disabled-opacity: 0.35;
+    --qty-input-bg: #ffffff;
+    --qty-input-color: #333333;
+    --qty-input-border: #dddddd;
+    --qty-input-focus-border: #333333;
+    --qty-input-focus-shadow: 0 0 0 2px rgba(51, 51, 51, 0.15);
+    --qty-border-radius: 4px;
+    --qty-font-family: inherit;
+    --qty-transition-speed: 150ms;
+    --qty-error-color: #dc3545;
+  }
+
+  /* ========================================
+     BASE STRUCTURE
+     The wrapper uses flexbox for alignment and
+     contains the label, controls group, and any messages
+     ======================================== */
+  .qty-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--qty-font-family);
+    /* Contain layout to prevent external interference */
+    contain: layout style;
+  }
+
+  .qty-selector__label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--qty-input-color);
+    /* Ensure label doesn't wrap awkwardly */
+    white-space: nowrap;
+  }
+
+  /* ========================================
+     CONTROLS GROUP
+     The buttons and input are grouped together with
+     careful attention to touch targets and visual balance
+     ======================================== */
+  .qty-selector__controls {
+    display: inline-flex;
+    align-items: stretch;
+    /* Prevent flex children from wrapping */
+    flex-wrap: nowrap;
+    /* Border wraps the entire group for cohesion */
+    border: 1px solid var(--qty-input-border);
+    border-radius: var(--qty-border-radius);
+    /* Clip children to respect border radius */
+    overflow: hidden;
+    /* Isolate stacking context for focus states */
+    isolation: isolate;
+    /* Natural width based on content */
+    width: fit
