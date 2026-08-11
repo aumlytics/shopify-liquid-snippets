@@ -1,0 +1,234 @@
+```liquid
+{% comment %}
+  Cart Item Quantity Limit Snippet
+  ================================
+  Prevents customers from adding more than a specified quantity of a product.
+  
+  @param {Number} default_limit - Default max quantity (default: 10)
+  @param {Boolean} enable_per_product_limits - Use product metafields for limits (default: true)
+  @param {String} limit_message - Error message template (default: "Maximum {limit} per order")
+  @param {Boolean} show_remaining - Show remaining quantity (default: true)
+  @param {String} remaining_message - Remaining quantity message template
+  @param {Boolean} enforce_on_cart_page - Enforce on cart page (default: true)
+  @param {String} collection_limits - JSON string of collection:limit pairs
+  @param {String} excluded_products - Comma-separated product handles to exclude
+  @param {String} error_position - "below", "above", or "toast" (default: "below")
+  @param {String} animation - "shake", "pulse", or "none" (default: "shake")
+{% endcomment %}
+
+{%- comment -%} Set default values for parameters {%- endcomment -%}
+{%- liquid
+  assign default_limit = default_limit | default: 10
+  assign enable_per_product_limits = enable_per_product_limits | default: true
+  assign limit_message = limit_message | default: 'Maximum {limit} per order'
+  assign show_remaining = show_remaining | default: true
+  assign remaining_message = remaining_message | default: '{remaining} remaining'
+  assign enforce_on_cart_page = enforce_on_cart_page | default: true
+  assign error_position = error_position | default: 'below'
+  assign animation = animation | default: 'shake'
+  assign excluded_products = excluded_products | default: ''
+  
+  # Parse excluded products into an array
+  assign excluded_array = excluded_products | split: ','
+  
+  # Build product limits data from cart
+  assign cart_data = ''
+-%}
+
+{%- comment -%} 
+  Build cart quantities data for JavaScript 
+  This allows us to track what's already in the cart
+{%- endcomment -%}
+{%- capture cart_quantities_json -%}
+{
+  {%- for item in cart.items -%}
+    "{{ item.variant_id }}": {
+      "quantity": {{ item.quantity }},
+      "product_id": {{ item.product_id }},
+      "product_handle": "{{ item.product.handle }}",
+      "title": {{ item.product.title | json }}
+    }{%- unless forloop.last -%},{%- endunless -%}
+  {%- endfor -%}
+}
+{%- endcapture -%}
+
+{%- comment -%}
+  Build product limits map
+  Priority: Product metafield > Collection limit > Default limit
+{%- endcomment -%}
+{%- capture product_limits_json -%}
+{
+  {%- if product -%}
+    {%- comment -%} On product page, include current product's limit {%- endcomment -%}
+    {%- liquid
+      assign product_limit = default_limit
+      assign is_excluded = false
+      
+      # Check if product is excluded
+      for excluded in excluded_array
+        assign excluded_handle = excluded | strip
+        if product.handle == excluded_handle
+          assign is_excluded = true
+          break
+        endif
+      endfor
+      
+      # Get per-product limit from metafield if enabled
+      if enable_per_product_limits and product.metafields.custom.quantity_limit
+        assign product_limit = product.metafields.custom.quantity_limit
+      endif
+    -%}
+    
+    {%- unless is_excluded -%}
+      "{{ product.id }}": {
+        "limit": {{ product_limit }},
+        "handle": "{{ product.handle }}",
+        "title": {{ product.title | json }},
+        "variants": {
+          {%- for variant in product.variants -%}
+            "{{ variant.id }}": {
+              "limit": {{ product_limit }},
+              "title": {{ variant.title | json }}
+            }{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        }
+      }
+    {%- endunless -%}
+  {%- endif -%}
+}
+{%- endcapture -%}
+
+{%- comment -%} 
+  Inline Styles 
+  Scoped with unique prefix to avoid conflicts with theme styles
+{%- endcomment -%}
+<style>
+  /* ===================================
+     Cart Item Quantity Limit - Styles
+     =================================== */
+  
+  /* Error message container */
+  .qty-limit-error {
+    display: none;
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #ef4444;
+    border-radius: 4px;
+    color: #991b1b;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    animation-duration: 0.5s;
+    animation-fill-mode: both;
+  }
+  
+  .qty-limit-error[aria-hidden="false"] {
+    display: block;
+  }
+  
+  .qty-limit-error__icon {
+    display: inline-flex;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+  }
+  
+  .qty-limit-error__text {
+    vertical-align: middle;
+  }
+  
+  /* Remaining quantity indicator */
+  .qty-limit-remaining {
+    display: none;
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+  
+  .qty-limit-remaining[data-visible="true"] {
+    display: block;
+  }
+  
+  .qty-limit-remaining--warning {
+    color: #d97706;
+    font-weight: 500;
+  }
+  
+  .qty-limit-remaining--critical {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  
+  /* Toast notification styles */
+  .qty-limit-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+    padding: 1rem 1.5rem;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.1);
+    transform: translateX(120%);
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .qty-limit-toast[aria-hidden="false"] {
+    transform: translateX(0);
+  }
+  
+  .qty-limit-toast__content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .qty-limit-toast__icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    color: #ef4444;
+  }
+  
+  .qty-limit-toast__message {
+    flex: 1;
+    color: #1f2937;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  
+  .qty-limit-toast__close {
+    flex-shrink: 0;
+    padding: 0.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    transition: color 0.15s ease;
+  }
+  
+  .qty-limit-toast__close:hover {
+    color: #4b5563;
+  }
+  
+  .qty-limit-toast__close:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  
+  /* Input states */
+  .qty-limit-input--error {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+  }
+  
+  .qty-limit-input--error:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+  }
+  
+  /* Animations */
+  @keyframes qty-limit-shake {
+    0%, 100% { transform: translateX(
