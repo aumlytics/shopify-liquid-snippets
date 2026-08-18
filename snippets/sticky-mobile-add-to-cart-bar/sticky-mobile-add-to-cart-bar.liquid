@@ -1,0 +1,200 @@
+```liquid
+{% comment %}
+  Sticky Mobile Add to Cart Bar
+  =============================
+  
+  A conversion-optimized sticky bottom bar for mobile devices that appears 
+  when the main add-to-cart button scrolls out of view.
+  
+  @param {Object} product - Required. The product object
+  @param {Object} current_variant - The selected variant (defaults to first available)
+  @param {String} product_form_id - ID of the main product form for variant sync
+  @param {String} main_atc_selector - CSS selector for the main ATC button
+  @param {Boolean} show_variant_title - Show selected variant title (default: true)
+  @param {Boolean} show_compare_price - Show compare-at price (default: true)
+  @param {Boolean} show_product_image - Show product thumbnail (default: true)
+  @param {String} bar_background - Background color (default: #ffffff)
+  @param {String} button_background - Button background color (default: #000000)
+  @param {String} button_text_color - Button text color (default: #ffffff)
+  @param {Number} z_index - Z-index value (default: 999)
+  @param {Number} breakpoint - Max width to show bar in px (default: 749)
+{% endcomment %}
+
+{%- comment -%} Guard clause: Only render on product pages with valid product {%- endcomment -%}
+{%- unless product -%}
+  {%- comment -%} Exit early if no product provided {%- endcomment -%}
+  {{ 'Sticky ATC Bar: Product object is required' | debug }}
+  {%- break -%}
+{%- endunless -%}
+
+{%- comment -%} Set default values for all parameters {%- endcomment -%}
+{%- liquid
+  assign current_variant = current_variant | default: product.selected_or_first_available_variant
+  assign main_atc_selector = main_atc_selector | default: '[name="add"]'
+  assign show_variant_title = show_variant_title | default: true
+  assign show_compare_price = show_compare_price | default: true
+  assign show_product_image = show_product_image | default: true
+  assign bar_background = bar_background | default: '#ffffff'
+  assign button_background = button_background | default: '#000000'
+  assign button_text_color = button_text_color | default: '#ffffff'
+  assign z_index = z_index | default: 999
+  assign breakpoint = breakpoint | default: 749
+  
+  # Generate unique ID to prevent conflicts if snippet is rendered multiple times
+  assign unique_id = 'sticky-atc-' | append: product.id | append: '-' | append: 'now' | date: '%N'
+  
+  # Determine variant availability for initial state
+  assign is_available = current_variant.available
+  assign is_sold_out = false
+  unless is_available
+    assign is_sold_out = true
+  endunless
+-%}
+
+{%- comment -%} 
+  Scoped CSS: All styles are prefixed with unique ID to prevent conflicts
+  Using inline styles ensures the snippet works regardless of theme CSS load order
+{%- endcomment -%}
+<style>
+  /* 
+   * Base container styles
+   * Fixed positioning at bottom, full width on mobile only
+   */
+  #{{ unique_id }} {
+    --sticky-atc-bg: {{ bar_background }};
+    --sticky-atc-btn-bg: {{ button_background }};
+    --sticky-atc-btn-color: {{ button_text_color }};
+    --sticky-atc-z: {{ z_index }};
+    
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--sticky-atc-z);
+    background: var(--sticky-atc-bg);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    
+    /* Start hidden below viewport */
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Hidden by default, shown via JS on mobile */
+    display: none;
+  }
+  
+  /* Only show on mobile devices */
+  @media screen and (max-width: {{ breakpoint }}px) {
+    #{{ unique_id }} {
+      display: block;
+    }
+  }
+  
+  /* Visible state - slides up into view */
+  #{{ unique_id }}.is-visible {
+    transform: translateY(0);
+  }
+  
+  /* 
+   * Respect user's reduced motion preference
+   * Accessibility best practice: some users experience motion sickness
+   */
+  @media (prefers-reduced-motion: reduce) {
+    #{{ unique_id }} {
+      transition: none;
+    }
+  }
+  
+  /* Inner container with padding and safe area inset for notched phones */
+  #{{ unique_id }} .sticky-atc__inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    /* Account for iPhone home indicator and Android navigation gestures */
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    max-width: 100%;
+  }
+  
+  /* Product image thumbnail */
+  #{{ unique_id }} .sticky-atc__image {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f5f5f5;
+  }
+  
+  #{{ unique_id }} .sticky-atc__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  /* Product info section - takes remaining space */
+  #{{ unique_id }} .sticky-atc__info {
+    flex: 1;
+    min-width: 0; /* Allows text truncation to work */
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  /* Product title with ellipsis for overflow */
+  #{{ unique_id }} .sticky-atc__title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+  }
+  
+  /* Variant title shown below product title */
+  #{{ unique_id }} .sticky-atc__variant {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Price container with sale price support */
+  #{{ unique_id }} .sticky-atc__price {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  /* Compare-at (original) price styling */
+  #{{ unique_id }} .sticky-atc__price-compare {
+    font-size: 12px;
+    font-weight: 400;
+    color: #999;
+    text-decoration: line-through;
+  }
+  
+  /* Sale price highlight */
+  #{{ unique_id }} .sticky-atc__price--sale {
+    color: #dc2626;
+  }
+  
+  /* Add to cart button */
+  #{{ unique_id }} .sticky-atc__button {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    min-width: 120px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
