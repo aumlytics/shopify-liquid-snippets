@@ -1,0 +1,232 @@
+```liquid
+{% comment %}
+  Cart Note Gift Message Field
+  ============================
+  
+  A customizable gift message field that saves to cart attributes.
+  Merchants can view these messages in the Shopify admin order details.
+  
+  Usage:
+    {% render 'cart-note-gift-message' %}
+  
+  Parameters:
+    - show_by_default: Boolean (default: false) - Start expanded
+    - max_characters: Number (default: 250) - Character limit
+    - enable_gift_wrap_option: Boolean (default: false) - Show gift wrap checkbox
+    - collapsible: Boolean (default: true) - Allow collapse/expand
+    - attribute_name: String (default: 'Gift Message') - Cart attribute key
+    - gift_wrap_attribute: String (default: 'Gift Wrap Requested') - Gift wrap attribute key
+    - placeholder_text: String - Textarea placeholder
+    - heading_text: String - Section heading
+    - auto_save: Boolean (default: true) - Save as user types
+    - auto_save_delay: Number (default: 800) - Debounce delay in ms
+  
+  Author: Expert Shopify Developer
+  Version: 1.0.0
+{% endcomment %}
+
+{% comment %} Parameter Defaults {% endcomment %}
+{%- liquid
+  assign show_by_default = show_by_default | default: false
+  assign max_characters = max_characters | default: 250
+  assign enable_gift_wrap_option = enable_gift_wrap_option | default: false
+  assign collapsible = collapsible | default: true
+  assign attribute_name = attribute_name | default: 'Gift Message'
+  assign gift_wrap_attribute = gift_wrap_attribute | default: 'Gift Wrap Requested'
+  assign placeholder_text = placeholder_text | default: 'Enter your gift message here...'
+  assign heading_text = heading_text | default: 'Add a Gift Message'
+  assign auto_save = auto_save | default: true
+  assign auto_save_delay = auto_save_delay | default: 800
+  
+  # Generate unique ID for accessibility and multiple instances
+  assign unique_id = 'gift-message-' | append: section.id | default: 'gift-message-main'
+  
+  # Check for existing cart attribute values
+  assign existing_message = cart.attributes[attribute_name]
+  assign existing_gift_wrap = cart.attributes[gift_wrap_attribute]
+  assign is_expanded = show_by_default
+  
+  # If there's existing content, show expanded
+  if existing_message != blank or existing_gift_wrap == 'Yes'
+    assign is_expanded = true
+  endif
+-%}
+
+{% comment %} 
+  Scoped CSS - Using a wrapper class to prevent style leakage
+  CSS Variables allow easy theme customization
+{% endcomment %}
+<style>
+  /* 
+   * Gift Message Component Styles
+   * All styles are scoped to .gift-message-wrapper to prevent conflicts
+   */
+  .gift-message-wrapper {
+    /* Customizable CSS Variables */
+    --gift-message-primary-color: #333333;
+    --gift-message-border-color: #e0e0e0;
+    --gift-message-bg-color: #ffffff;
+    --gift-message-focus-color: #000000;
+    --gift-message-success-color: #28a745;
+    --gift-message-error-color: #dc3545;
+    --gift-message-font-family: inherit;
+    --gift-message-font-size: 14px;
+    --gift-message-padding: 16px;
+    --gift-message-border-radius: 8px;
+    --gift-message-spacing: 12px;
+    
+    /* Component base styles */
+    font-family: var(--gift-message-font-family);
+    font-size: var(--gift-message-font-size);
+    margin: var(--gift-message-spacing) 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Ensure all children inherit box-sizing */
+  .gift-message-wrapper *,
+  .gift-message-wrapper *::before,
+  .gift-message-wrapper *::after {
+    box-sizing: inherit;
+  }
+  
+  /* Container with border */
+  .gift-message-container {
+    border: 1px solid var(--gift-message-border-color);
+    border-radius: var(--gift-message-border-radius);
+    background-color: var(--gift-message-bg-color);
+    overflow: hidden;
+  }
+  
+  /* Collapsible header/toggle button */
+  .gift-message-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--gift-message-padding);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--gift-message-primary-color);
+    font-family: inherit;
+    font-size: inherit;
+    text-align: left;
+    transition: background-color 0.2s ease;
+  }
+  
+  .gift-message-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+  
+  /* Focus styles for accessibility - visible outline */
+  .gift-message-toggle:focus {
+    outline: 2px solid var(--gift-message-focus-color);
+    outline-offset: -2px;
+  }
+  
+  .gift-message-toggle:focus:not(:focus-visible) {
+    outline: none;
+  }
+  
+  .gift-message-toggle:focus-visible {
+    outline: 2px solid var(--gift-message-focus-color);
+    outline-offset: -2px;
+  }
+  
+  /* Header content layout */
+  .gift-message-header-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Gift icon - using inline SVG for independence */
+  .gift-message-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+  }
+  
+  .gift-message-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  /* Heading text */
+  .gift-message-heading {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--gift-message-primary-color);
+  }
+  
+  /* Chevron indicator for collapsed state */
+  .gift-message-chevron {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+  }
+  
+  .gift-message-chevron svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  /* Rotate chevron when expanded */
+  .gift-message-toggle[aria-expanded="true"] .gift-message-chevron {
+    transform: rotate(180deg);
+  }
+  
+  /* Collapsible content area */
+  .gift-message-content {
+    padding: 0 var(--gift-message-padding) var(--gift-message-padding);
+    display: none;
+  }
+  
+  .gift-message-content[data-expanded="true"] {
+    display: block;
+  }
+  
+  /* Non-collapsible header (static heading) */
+  .gift-message-static-header {
+    padding: var(--gift-message-padding);
+    padding-bottom: 0;
+  }
+  
+  .gift-message-static-header .gift-message-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Form elements container */
+  .gift-message-form-group {
+    margin-bottom: var(--gift-message-spacing);
+  }
+  
+  .gift-message-form-group:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* Textarea styling */
+  .gift-message-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid var(--gift-message-border-color);
+    border-radius: calc(var(--gift-message-border-radius) / 2);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.
