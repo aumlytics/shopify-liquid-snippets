@@ -1,0 +1,470 @@
+# Product Reviews Star Rating Display - Complete Solution
+
+## File 1: README.md
+
+```markdown
+# Product Reviews Star Rating Display
+
+A lightweight, dependency-free Shopify snippet that displays aggregate star ratings and review counts on product cards and product pages without requiring a paid reviews app.
+
+## What It Solves
+
+- Displays visual star ratings (1-5 stars with half-star support)
+- Shows review counts with proper pluralization
+- Works with product metafields for storing review data
+- No external dependencies or paid apps required
+- Fully accessible with ARIA labels and semantic HTML
+- Responsive and customizable via CSS variables
+
+## Requirements
+
+- Shopify OS 2.0 theme (Dawn, Horizon, Craft, or compatible)
+- Product metafields for storing review data (instructions below)
+
+## Installation
+
+### Step 1: Create Product Metafields
+
+Go to **Settings > Custom data > Products** and create two metafield definitions:
+
+| Name | Namespace and key | Type |
+|------|-------------------|------|
+| Average Rating | `reviews.rating_average` | Decimal |
+| Review Count | `reviews.rating_count` | Integer |
+
+### Step 2: Add the Snippet Files
+
+1. Copy `product-reviews-star-rating.liquid` to your theme's `snippets/` folder
+2. Copy `snippet.js` content to your theme's `assets/` folder as `product-reviews-star-rating.js`
+
+### Step 3: Include the Snippet
+
+Add the snippet wherever you want ratings to appear:
+
+```liquid
+{% render 'product-reviews-star-rating', product: product %}
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `product` | Product | **required** | The product object to display ratings for |
+| `show_count` | Boolean | `true` | Whether to display the review count |
+| `show_empty` | Boolean | `false` | Whether to show empty stars when no reviews exist |
+| `size` | String | `'medium'` | Star size: `'small'`, `'medium'`, `'large'` |
+| `color_filled` | String | `'#fbbf24'` | Color for filled stars (CSS color) |
+| `color_empty` | String | `'#d1d5db'` | Color for empty stars (CSS color) |
+| `link_to_reviews` | Boolean | `true` | Whether clicking scrolls to reviews section |
+| `schema_enabled` | Boolean | `true` | Whether to output JSON-LD structured data |
+
+## Usage Examples
+
+### Basic Usage (Product Page)
+
+```liquid
+{% render 'product-reviews-star-rating', product: product %}
+```
+
+### Product Card (Collection Page)
+
+```liquid
+{% render 'product-reviews-star-rating', 
+   product: card_product,
+   size: 'small',
+   show_count: true,
+   link_to_reviews: false
+%}
+```
+
+### Minimal Display (No Count)
+
+```liquid
+{% render 'product-reviews-star-rating',
+   product: product,
+   show_count: false,
+   size: 'small'
+%}
+```
+
+### Custom Colors (Brand Matching)
+
+```liquid
+{% render 'product-reviews-star-rating',
+   product: product,
+   color_filled: '#ff6b35',
+   color_empty: '#e5e5e5'
+%}
+```
+
+### Show Empty State (Always Display)
+
+```liquid
+{% render 'product-reviews-star-rating',
+   product: product,
+   show_empty: true
+%}
+```
+
+### Featured Product (Large Size)
+
+```liquid
+{% render 'product-reviews-star-rating',
+   product: product,
+   size: 'large',
+   schema_enabled: true
+%}
+```
+
+## Populating Review Data
+
+### Option 1: Manual Entry
+
+Edit each product and enter values in the metafields:
+- `reviews.rating_average`: Enter a decimal between 0 and 5 (e.g., 4.5)
+- `reviews.rating_count`: Enter the total number of reviews (e.g., 127)
+
+### Option 2: CSV Import
+
+Include these columns in your product CSV:
+```
+reviews.rating_average,reviews.rating_count
+4.5,127
+3.8,45
+```
+
+### Option 3: API Integration
+
+Use the Shopify Admin API to update metafields programmatically:
+
+```javascript
+// Example: Update product review metafields via Admin API
+const updateProductReviews = async (productId, averageRating, reviewCount) => {
+  const response = await fetch(`/admin/api/2024-01/products/${productId}/metafields.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': 'your-access-token'
+    },
+    body: JSON.stringify({
+      metafield: {
+        namespace: 'reviews',
+        key: 'rating_average',
+        value: averageRating.toString(),
+        type: 'number_decimal'
+      }
+    })
+  });
+  // Repeat for rating_count
+};
+```
+
+## Structured Data (SEO)
+
+When `schema_enabled: true`, the snippet outputs JSON-LD structured data for Google Rich Results:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Product Name",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.5",
+    "reviewCount": "127",
+    "bestRating": "5",
+    "worstRating": "1"
+  }
+}
+```
+
+## Accessibility Features
+
+- Full ARIA labels describing rating values
+- Keyboard navigable when linked
+- Screen reader friendly text alternatives
+- High contrast support
+- Respects `prefers-reduced-motion`
+
+## Browser Support
+
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+- iOS Safari 12+
+- Android Chrome 60+
+
+## Troubleshooting
+
+### Stars Not Appearing
+
+1. Verify metafields are created with correct namespace: `reviews`
+2. Check that product has metafield values assigned
+3. Ensure `show_empty: true` if you want to display when no reviews exist
+
+### Structured Data Errors
+
+1. Use Google's Rich Results Test to validate
+2. Ensure `rating_average` is between 1 and 5
+3. Ensure `rating_count` is a positive integer
+
+### Styling Conflicts
+
+The snippet uses scoped CSS with specific selectors. If conflicts occur:
+1. Increase specificity by wrapping in a container
+2. Use the CSS custom properties to override colors
+3. Add `!important` to your overrides (last resort)
+
+## Changelog
+
+### v1.0.0
+- Initial release
+- Full star rating display with half-star support
+- JSON-LD structured data output
+- Accessible and responsive design
+```
+
+---
+
+## File 2: product-reviews-star-rating.liquid
+
+```liquid
+{% comment %}
+  Product Reviews Star Rating Display
+  ===================================
+  
+  A lightweight, accessible star rating component that displays aggregate
+  review data stored in product metafields.
+  
+  @param {product} product - Required. The product object to display ratings for
+  @param {boolean} show_count - Show review count next to stars (default: true)
+  @param {boolean} show_empty - Show empty stars when no reviews exist (default: false)
+  @param {string} size - Star size: 'small', 'medium', 'large' (default: 'medium')
+  @param {string} color_filled - CSS color for filled stars (default: '#fbbf24')
+  @param {string} color_empty - CSS color for empty stars (default: '#d1d5db')
+  @param {boolean} link_to_reviews - Link to reviews section on click (default: true)
+  @param {boolean} schema_enabled - Output JSON-LD structured data (default: true)
+  
+  Usage:
+    {% render 'product-reviews-star-rating', product: product %}
+    {% render 'product-reviews-star-rating', product: product, size: 'small', show_count: false %}
+{% endcomment %}
+
+{% comment %}
+  PARAMETER DEFAULTS
+  We use the | default filter to establish sensible defaults while allowing
+  complete override flexibility. This pattern ensures the snippet works
+  out-of-the-box while remaining highly configurable.
+{% endcomment %}
+{%- liquid
+  assign show_count = show_count | default: true
+  assign show_empty = show_empty | default: false
+  assign size = size | default: 'medium'
+  assign color_filled = color_filled | default: '#fbbf24'
+  assign color_empty = color_empty | default: '#d1d5db'
+  assign link_to_reviews = link_to_reviews | default: true
+  assign schema_enabled = schema_enabled | default: true
+-%}
+
+{% comment %}
+  METAFIELD DATA EXTRACTION
+  We support multiple metafield access patterns to ensure compatibility
+  across different theme configurations and Shopify versions.
+  
+  Priority order:
+  1. Direct metafield access (OS 2.0 style)
+  2. Metafields array access (legacy style)
+  3. Default to 0 if no data exists
+{% endcomment %}
+{%- liquid
+  # Try OS 2.0 direct access first, then fall back to legacy access
+  assign rating_average = product.metafields.reviews.rating_average.value | default: product.metafields.reviews.rating_average | default: 0
+  assign rating_count = product.metafields.reviews.rating_count.value | default: product.metafields.reviews.rating_count | default: 0
+  
+  # Convert to numbers and ensure valid ranges
+  assign rating_average = rating_average | plus: 0
+  assign rating_count = rating_count | plus: 0
+  
+  # Clamp rating between 0 and 5 for safety
+  if rating_average > 5
+    assign rating_average = 5
+  endif
+  if rating_average < 0
+    assign rating_average = 0
+  endif
+  
+  # Determine if we should render anything
+  assign has_reviews = false
+  if rating_count > 0 and rating_average > 0
+    assign has_reviews = true
+  endif
+  
+  # Early exit conditions
+  assign should_render = has_reviews
+  if show_empty
+    assign should_render = true
+  endif
+-%}
+
+{% comment %}
+  EARLY EXIT
+  If there are no reviews and show_empty is false, we exit early
+  to avoid rendering unnecessary DOM elements.
+{% endcomment %}
+{%- unless should_render -%}
+  {%- break -%}
+{%- endunless -%}
+
+{% comment %}
+  STAR CALCULATION
+  We calculate the number of full stars, half stars, and empty stars.
+  This uses integer math to avoid floating point issues in Liquid.
+  
+  Example: 4.3 rating
+  - Full stars: 4 (floor of 4.3)
+  - Decimal: 0.3 (4.3 - 4)
+  - Half star: No (0.3 < 0.25 threshold for half)
+  - Empty stars: 1 (5 - 4 - 0)
+  
+  Example: 4.7 rating
+  - Full stars: 4 (floor of 4.7)
+  - Decimal: 0.7 (4.7 - 4)
+  - Half star: Yes (0.7 >= 0.25)
+  - Empty stars: 0 (5 - 4 - 1)
+{% endcomment %}
+{%- liquid
+  # Calculate star distribution
+  assign rating_floor = rating_average | floor
+  assign rating_decimal = rating_average | minus: rating_floor | times: 100 | round
+  
+  # Determine if we need a half star (threshold: 0.25 to 0.75)
+  assign has_half_star = false
+  if rating_decimal >= 25 and rating_decimal < 75
+    assign has_half_star = true
+  endif
+  
+  # If decimal is >= 0.75, round up to full star
+  assign full_stars = rating_floor
+  if rating_decimal >= 75
+    assign full_stars = full_stars | plus: 1
+  endif
+  
+  # Calculate empty stars
+  assign filled_count = full_stars
+  if has_half_star
+    assign filled_count = filled_count | plus: 1
+  endif
+  assign empty_stars = 5 | minus: filled_count
+  
+  # Ensure we don't exceed 5 stars total
+  if empty_stars < 0
+    assign empty_stars = 0
+  endif
+-%}
+
+{% comment %}
+  SIZE CONFIGURATION
+  We use size presets that scale well across different viewport sizes.
+  The sizes are based on common UI patterns and accessibility guidelines
+  (minimum touch target of 44px for interactive elements).
+{% endcomment %}
+{%- liquid
+  case size
+    when 'small'
+      assign star_size = '14px'
+      assign font_size = '12px'
+      assign gap_size = '2px'
+    when 'large'
+      assign star_size = '24px'
+      assign font_size = '16px'
+      assign gap_size = '4px'
+    else
+      # Default: medium
+      assign star_size = '18px'
+      assign font_size = '14px'
+      assign gap_size = '3px'
+  endcase
+-%}
+
+{% comment %}
+  UNIQUE ID GENERATION
+  We generate a unique ID for this instance to scope our CSS and enable
+  proper ARIA relationships. This allows multiple instances on the same page.
+{% endcomment %}
+{%- assign unique_id = 'star-rating-' | append: product.id | append: '-' | append: 'now' | date: '%N' -%}
+
+{% comment %}
+  ACCESSIBILITY TEXT
+  We build comprehensive accessible text that screen readers will announce.
+  This follows WCAG 2.1 guidelines for non-text content.
+{% endcomment %}
+{%- capture aria_label -%}
+  {%- if has_reviews -%}
+    {{ rating_average }} out of 5 stars based on {{ rating_count }} {{ rating_count | pluralize: 'review', 'reviews' }}
+  {%- else -%}
+    No reviews yet
+  {%- endif -%}
+{%- endcapture -%}
+
+{% comment %}
+  REVIEW COUNT TEXT
+  We pluralize the review count text properly for grammatical correctness.
+{% endcomment %}
+{%- capture review_text -%}
+  {%- if rating_count == 1 -%}
+    1 review
+  {%- else -%}
+    {{ rating_count }} reviews
+  {%- endif -%}
+{%- endcapture -%}
+
+{% comment %}
+  SCOPED STYLES
+  We output scoped CSS inline to avoid external dependencies and ensure
+  the component works immediately after insertion. The styles use CSS
+  custom properties for easy theming and are scoped to avoid conflicts.
+{% endcomment %}
+<style>
+  /* 
+   * Star Rating Component Styles
+   * Scoped to unique ID to prevent conflicts with theme styles
+   */
+  #{{ unique_id }} {
+    /* CSS Custom Properties for easy theming */
+    --star-rating-color-filled: {{ color_filled }};
+    --star-rating-color-empty: {{ color_empty }};
+    --star-rating-size: {{ star_size }};
+    --star-rating-gap: {{ gap_size }};
+    --star-rating-font-size: {{ font_size }};
+    
+    /* Layout */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-family: inherit;
+    line-height: 1;
+  }
+  
+  /* 
+   * Stars Container
+   * Uses flexbox for consistent alignment across browsers
+   */
+  #{{ unique_id }} .star-rating__stars {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--star-rating-gap);
+    /* Prevent text selection on stars */
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  /*
+   * Individual Star
+   * Using inline SVG ensures crisp rendering at all sizes
+   * and allows CSS-based color control
+   */
+  #{{ unique_id }} .star-rating__star {
+    display: inline-flex;
+    align-items: center;
+    justify-content
