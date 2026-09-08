@@ -1,0 +1,236 @@
+```liquid
+{% comment %}
+  Collection Load More Button
+  ===========================
+  Replaces traditional pagination with a "Load More" button that dynamically
+  appends products without full page reload.
+  
+  @param {Object} paginate - Required. The paginate object from Liquid
+  @param {String} products_container_id - ID of the product grid container (default: 'ProductGrid')
+  @param {String} product_card_snippet - Name of your product card snippet (default: 'product-card')
+  @param {String} button_text - Button label (default: 'Load More Products')
+  @param {String} loading_text - Text while loading (default: 'Loading...')
+  @param {String} button_class - Additional CSS classes
+  @param {Boolean} show_count - Show product count (default: true)
+  @param {Boolean} scroll_to_new - Scroll to new products (default: false)
+  @param {Boolean} update_url - Update URL with page param (default: true)
+  @param {Boolean} prefetch_next - Prefetch next page (default: true)
+  @param {Boolean} inline_js - Include JS inline (default: false)
+  @param {String} animation - Animation type: 'fade', 'slide', 'none' (default: 'fade')
+  
+  Usage:
+  {% paginate collection.products by 12 %}
+    {% render 'collection-load-more-button', paginate: paginate, products_container_id: 'product-grid' %}
+  {% endpaginate %}
+{% endcomment %}
+
+{% comment %} Set default values for all parameters {% endcomment %}
+{%- liquid
+  assign container_id = products_container_id | default: 'ProductGrid'
+  assign card_snippet = product_card_snippet | default: 'product-card'
+  assign btn_text = button_text | default: 'Load More Products'
+  assign loading_txt = loading_text | default: 'Loading...'
+  assign btn_class = button_class | default: ''
+  assign display_count = show_count | default: true
+  assign auto_scroll = scroll_to_new | default: false
+  assign sync_url = update_url | default: true
+  assign do_prefetch = prefetch_next | default: true
+  assign js_inline = inline_js | default: false
+  assign anim_type = animation | default: 'fade'
+  
+  assign current_page = paginate.current_page
+  assign total_pages = paginate.pages
+  assign total_items = paginate.items
+  assign items_per_page = paginate.page_size
+  assign current_count = current_page | times: items_per_page
+  if current_count > total_items
+    assign current_count = total_items
+  endif
+-%}
+
+{% comment %} 
+  Only render if there are more pages to load.
+  This provides graceful degradation - nothing shows when unnecessary.
+{% endcomment %}
+{%- if paginate.pages > 1 -%}
+  {% comment %} 
+    Scoped Styles
+    =============
+    Using CSS custom properties allows easy theming while providing sensible defaults.
+    All styles are scoped to prevent conflicts with theme styles.
+  {% endcomment %}
+  <style>
+    .load-more {
+      /* Layout */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 32px 16px;
+      width: 100%;
+    }
+    
+    .load-more__button {
+      /* Reset */
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      
+      /* Theming via CSS custom properties */
+      background-color: var(--load-more-btn-bg, #000);
+      color: var(--load-more-btn-color, #fff);
+      border-radius: var(--load-more-btn-border-radius, 4px);
+      padding: var(--load-more-btn-padding, 16px 32px);
+      font-size: var(--load-more-btn-font-size, 14px);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      
+      /* Interaction */
+      transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+      position: relative;
+      min-width: 200px;
+      min-height: 52px;
+    }
+    
+    .load-more__button:hover:not(:disabled) {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+    
+    .load-more__button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    .load-more__button:focus-visible {
+      /* Accessible focus indicator */
+      outline: 2px solid var(--load-more-btn-bg, #000);
+      outline-offset: 3px;
+    }
+    
+    .load-more__button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    
+    /* Button text management */
+    .load-more__button-text {
+      transition: opacity 0.2s ease;
+    }
+    
+    .load-more__button[aria-busy="true"] .load-more__button-text {
+      opacity: 0;
+    }
+    
+    /* Loading spinner - CSS only, no external assets needed */
+    .load-more__spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      opacity: 0;
+      visibility: hidden;
+      animation: load-more-spin 0.8s linear infinite;
+      /* Paused by default to prevent CPU usage when hidden */
+      animation-play-state: paused;
+    }
+    
+    .load-more__button[aria-busy="true"] .load-more__spinner {
+      opacity: 1;
+      visibility: visible;
+      animation-play-state: running;
+    }
+    
+    @keyframes load-more-spin {
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    
+    /* Progress counter */
+    .load-more__count {
+      font-size: 13px;
+      color: var(--load-more-count-color, #666);
+      text-align: center;
+    }
+    
+    /* Visual progress bar */
+    .load-more__progress {
+      width: 100%;
+      max-width: 300px;
+      height: 4px;
+      background: var(--load-more-progress-bg, rgba(0, 0, 0, 0.1));
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .load-more__progress-bar {
+      height: 100%;
+      background: var(--load-more-progress-fill, #000);
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+    
+    /* Fallback pagination - shown when JS is disabled or fails */
+    .load-more__fallback {
+      display: none;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .load-more__fallback a {
+      padding: 8px 12px;
+      text-decoration: none;
+      border: 1px solid var(--load-more-btn-bg, #000);
+      border-radius: var(--load-more-btn-border-radius, 4px);
+      color: var(--load-more-btn-bg, #000);
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    
+    .load-more__fallback a:hover {
+      background: var(--load-more-btn-bg, #000);
+      color: var(--load-more-btn-color, #fff);
+    }
+    
+    .load-more__fallback a[aria-current="page"] {
+      background: var(--load-more-btn-bg, #000);
+      color: var(--load-more-btn-color, #fff);
+    }
+    
+    /* No-JS fallback: hide button, show traditional pagination */
+    .no-js .load-more__button,
+    .no-js .load-more__progress,
+    .no-js .load-more__count {
+      display: none;
+    }
+    
+    .no-js .load-more__fallback {
+      display: flex;
+    }
+    
+    /* Animation styles for new products */
+    [data-load-more-new] {
+      opacity: 0;
+    }
+    
+    [data-load-more-animation="fade"] [data-load-more-new] {
+      animation: load-more-fade-in 0.4s ease forwards;
+    }
+    
+    [data-load-more-animation="slide"] [data-load-more-new] {
+      animation: load-more-slide-in 0.4s ease forwards;
+    }
+    
+    [data-load-more-animation="none"] [data-load-more-new] {
+      opacity: 1;
+    }
+    
+    @keyframes load-more-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
