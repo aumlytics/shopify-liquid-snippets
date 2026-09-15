@@ -1,0 +1,204 @@
+```liquid
+{% comment %}
+  Dynamic Buy Now Pay Later Messaging
+  ===================================
+  
+  Displays real-time installment pricing for BNPL providers that updates
+  dynamically when product variants change.
+  
+  @param {Product} product - Required. The product object
+  @param {Variant} current_variant - Required. Currently selected variant
+  @param {String} providers - Optional. Comma-separated provider list
+  @param {Number} installments - Optional. Number of installments (default: 4)
+  @param {Number} min_price - Optional. Minimum price in dollars (default: 50)
+  @param {Number} max_price - Optional. Maximum price in dollars (default: 3000)
+  @param {Boolean} show_logo - Optional. Show provider logos (default: true)
+  @param {Boolean} show_learn_more - Optional. Show learn more links (default: true)
+  @param {String} custom_class - Optional. Additional CSS class
+  @param {String} position - Optional. Position context for styling
+  
+  Usage:
+  {% render 'dynamic-bnpl-messaging',
+    product: product,
+    current_variant: product.selected_or_first_available_variant
+  %}
+{% endcomment %}
+
+{%- comment -%} Set defaults for all parameters {%- endcomment -%}
+{%- liquid
+  assign enabled_providers = providers | default: 'shoppay,klarna,afterpay,affirm'
+  assign num_installments = installments | default: 4
+  assign minimum_price = min_price | default: 50
+  assign maximum_price = max_price | default: 3000
+  assign display_logo = show_logo | default: true
+  assign display_learn_more = show_learn_more | default: true
+  assign extra_class = custom_class | default: ''
+  assign display_position = position | default: 'below-price'
+  
+  # Convert price thresholds to cents for comparison
+  assign min_price_cents = minimum_price | times: 100
+  assign max_price_cents = maximum_price | times: 100
+  
+  # Get current price from variant
+  assign current_price = current_variant.price | default: product.price
+  
+  # Check if product is eligible for BNPL
+  # BNPL typically doesn't work with subscriptions or prices outside thresholds
+  assign is_subscription = false
+  if product.selling_plan_groups.size > 0
+    assign is_subscription = true
+  endif
+  
+  assign price_in_range = false
+  if current_price >= min_price_cents and current_price <= max_price_cents
+    assign price_in_range = true
+  endif
+  
+  assign is_eligible = true
+  if is_subscription or price_in_range == false
+    assign is_eligible = false
+  endif
+  
+  # Calculate installment amount
+  assign installment_amount = current_price | divided_by: num_installments
+  
+  # Parse enabled providers into array
+  assign provider_array = enabled_providers | split: ','
+-%}
+
+{%- comment -%} 
+  Only render if we have valid data and at least one provider
+  We still render the container for JS to potentially show later
+{%- endcomment -%}
+{%- if product != blank and current_variant != blank -%}
+
+{%- comment -%} Inline styles scoped to this component {%- endcomment -%}
+<style>
+  /* 
+   * BNPL Messaging Styles
+   * Using CSS custom properties for easy theme integration
+   * All styles scoped with .bnpl-messaging prefix to avoid conflicts
+   */
+  
+  .bnpl-messaging {
+    /* Customizable via CSS variables */
+    --bnpl-text-color: var(--color-foreground, #1a1a1a);
+    --bnpl-accent-color: var(--color-accent, #5c6ac4);
+    --bnpl-background: var(--color-background-secondary, #f9fafb);
+    --bnpl-border-color: var(--color-border, #e5e7eb);
+    --bnpl-price-color: var(--color-success, #059669);
+    --bnpl-font-size: 14px;
+    --bnpl-font-family: inherit;
+    --bnpl-line-height: 1.5;
+    --bnpl-padding: 16px;
+    --bnpl-border-radius: 8px;
+    --bnpl-gap: 12px;
+    --bnpl-logo-height: 20px;
+    
+    /* Base styles */
+    font-family: var(--bnpl-font-family);
+    font-size: var(--bnpl-font-size);
+    line-height: var(--bnpl-line-height);
+    color: var(--bnpl-text-color);
+    margin: 16px 0;
+  }
+  
+  /* Hidden state for ineligible products */
+  .bnpl-messaging[data-eligible="false"] {
+    display: none;
+  }
+  
+  /* Container for the messaging */
+  .bnpl-messaging__container {
+    background: var(--bnpl-background);
+    border: 1px solid var(--bnpl-border-color);
+    border-radius: var(--bnpl-border-radius);
+    padding: var(--bnpl-padding);
+  }
+  
+  /* Provider list layout */
+  .bnpl-messaging__providers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bnpl-gap);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Individual provider item */
+  .bnpl-messaging__provider {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  /* Provider logo styling */
+  .bnpl-messaging__logo {
+    height: var(--bnpl-logo-height);
+    width: auto;
+    flex-shrink: 0;
+  }
+  
+  /* SVG logo container for inline SVGs */
+  .bnpl-messaging__logo-svg {
+    height: var(--bnpl-logo-height);
+    width: auto;
+    display: inline-block;
+  }
+  
+  .bnpl-messaging__logo-svg svg {
+    height: 100%;
+    width: auto;
+  }
+  
+  /* Main text content */
+  .bnpl-messaging__text {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  /* Installment price highlight */
+  .bnpl-messaging__price {
+    font-weight: 600;
+    color: var(--bnpl-price-color);
+    white-space: nowrap;
+  }
+  
+  /* Learn more link */
+  .bnpl-messaging__learn-more {
+    color: var(--bnpl-accent-color);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  
+  .bnpl-messaging__learn-more:hover,
+  .bnpl-messaging__learn-more:focus {
+    opacity: 0.8;
+  }
+  
+  .bnpl-messaging__learn-more:focus-visible {
+    outline: 2px solid var(--bnpl-accent-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  
+  /* Info icon for learn more */
+  .bnpl-messaging__info-icon {
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  
+  /* Loading state */
+  .bnpl-messaging[data-loading="true"] .bnpl-messaging__price {
+    background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5
