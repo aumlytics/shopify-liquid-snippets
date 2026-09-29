@@ -1,0 +1,459 @@
+# Low Stock Inventory Badge - Complete Solution
+
+## File 1: README.md
+
+```markdown
+# Low Stock Inventory Badge
+
+A production-ready Shopify snippet that displays dynamic "Only X left!" or "Low Stock" badges on product pages and collection cards when inventory drops below a configurable threshold.
+
+## What It Solves
+
+- **Creates urgency**: Motivates customers to purchase before items sell out
+- **Reduces purchase hesitation**: Clear inventory visibility builds trust
+- **Increases conversion rates**: Scarcity psychology drives faster decisions
+- **Improves UX**: Customers know stock status before adding to cart
+
+## Features
+
+- ✅ Works on product pages AND collection cards
+- ✅ Configurable low stock threshold
+- ✅ Multiple display modes (exact count, "Low Stock", or "Almost Gone")
+- ✅ Variant-aware (updates when variant changes)
+- ✅ Fully accessible (ARIA labels, semantic HTML)
+- ✅ Customizable colors and styling
+- ✅ Works with inventory tracking enabled/disabled products
+- ✅ OS 2.0 compatible (Dawn, Horizon, Craft, etc.)
+- ✅ No external dependencies
+
+## Installation
+
+### Step 1: Create the Snippet
+
+1. In your Shopify Admin, go to **Online Store > Themes**
+2. Click **Actions > Edit code** on your active theme
+3. Under **Snippets**, click **Add a new snippet**
+4. Name it `inventory-low-stock-badge`
+5. Paste the contents of `inventory-low-stock-badge.liquid`
+6. Click **Save**
+
+### Step 2: Add JavaScript (Optional - for variant switching)
+
+1. Under **Assets**, click **Add a new asset**
+2. Upload or create `inventory-low-stock-badge.js`
+3. Paste the contents of `snippet.js`
+4. Click **Save**
+
+### Step 3: Include in Your Theme
+
+#### For Product Pages
+
+In your `sections/main-product.liquid` or `templates/product.liquid`:
+
+```liquid
+{% render 'inventory-low-stock-badge',
+  product: product,
+  threshold: 10,
+  display_mode: 'exact',
+  show_icon: true
+%}
+```
+
+#### For Collection Cards
+
+In your `snippets/card-product.liquid` or collection product loop:
+
+```liquid
+{% render 'inventory-low-stock-badge',
+  product: card_product,
+  threshold: 5,
+  display_mode: 'text',
+  context: 'collection'
+%}
+```
+
+### Step 4: Load JavaScript (for variant switching)
+
+Add to your `layout/theme.liquid` before `</body>`:
+
+```liquid
+<script src="{{ 'inventory-low-stock-badge.js' | asset_url }}" defer></script>
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `product` | Object | **required** | The product object |
+| `threshold` | Number | `10` | Inventory level that triggers the badge |
+| `critical_threshold` | Number | `3` | Inventory level for "critical" styling |
+| `display_mode` | String | `'exact'` | How to show stock: `'exact'`, `'text'`, or `'range'` |
+| `show_icon` | Boolean | `true` | Show warning icon |
+| `context` | String | `'product'` | Where badge is used: `'product'` or `'collection'` |
+| `variant` | Object | `null` | Specific variant (defaults to selected/first) |
+| `custom_class` | String | `''` | Additional CSS classes |
+| `badge_style` | String | `'pill'` | Badge shape: `'pill'`, `'rounded'`, or `'square'` |
+| `position` | String | `'inline'` | Position: `'inline'`, `'absolute-top'`, `'absolute-bottom'` |
+| `animate` | Boolean | `true` | Enable pulse animation for critical stock |
+| `hide_when_zero` | Boolean | `false` | Hide badge when out of stock (vs showing "Sold Out") |
+
+## Display Modes
+
+### `'exact'` (Default)
+Shows the precise inventory count:
+- "Only 3 left!"
+- "Only 1 left - order soon!"
+
+### `'text'`
+Shows generic low stock message:
+- "Low Stock"
+- "Almost Gone!"
+
+### `'range'`
+Shows inventory ranges:
+- "Less than 5 left"
+- "Less than 10 left"
+
+## Example Configurations
+
+### Minimal Setup
+```liquid
+{% render 'inventory-low-stock-badge', product: product %}
+```
+
+### High-Urgency Product Page
+```liquid
+{% render 'inventory-low-stock-badge',
+  product: product,
+  threshold: 15,
+  critical_threshold: 5,
+  display_mode: 'exact',
+  show_icon: true,
+  animate: true,
+  badge_style: 'pill'
+%}
+```
+
+### Subtle Collection Card
+```liquid
+{% render 'inventory-low-stock-badge',
+  product: card_product,
+  threshold: 5,
+  display_mode: 'text',
+  show_icon: false,
+  context: 'collection',
+  badge_style: 'rounded',
+  animate: false
+%}
+```
+
+### Absolute Positioned Badge
+```liquid
+{% render 'inventory-low-stock-badge',
+  product: product,
+  position: 'absolute-top',
+  badge_style: 'square',
+  custom_class: 'my-custom-badge'
+%}
+```
+
+## Customization
+
+### CSS Custom Properties
+
+Override these CSS variables in your theme's CSS:
+
+```css
+:root {
+  --low-stock-bg: #fef3c7;
+  --low-stock-text: #92400e;
+  --low-stock-border: #f59e0b;
+  
+  --critical-stock-bg: #fee2e2;
+  --critical-stock-text: #991b1b;
+  --critical-stock-border: #ef4444;
+  
+  --sold-out-bg: #f3f4f6;
+  --sold-out-text: #6b7280;
+  --sold-out-border: #d1d5db;
+}
+```
+
+### Theme Editor Integration
+
+Add this to your `config/settings_schema.json` for merchant customization:
+
+```json
+{
+  "name": "Low Stock Badge",
+  "settings": [
+    {
+      "type": "range",
+      "id": "low_stock_threshold",
+      "label": "Low stock threshold",
+      "min": 1,
+      "max": 50,
+      "step": 1,
+      "default": 10
+    },
+    {
+      "type": "select",
+      "id": "low_stock_display_mode",
+      "label": "Display mode",
+      "options": [
+        { "value": "exact", "label": "Show exact count" },
+        { "value": "text", "label": "Show text only" },
+        { "value": "range", "label": "Show range" }
+      ],
+      "default": "exact"
+    },
+    {
+      "type": "checkbox",
+      "id": "low_stock_enabled",
+      "label": "Enable low stock badges",
+      "default": true
+    }
+  ]
+}
+```
+
+Then use in templates:
+
+```liquid
+{% if settings.low_stock_enabled %}
+  {% render 'inventory-low-stock-badge',
+    product: product,
+    threshold: settings.low_stock_threshold,
+    display_mode: settings.low_stock_display_mode
+  %}
+{% endif %}
+```
+
+## Browser Support
+
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+- iOS Safari 12+
+- Android Chrome 60+
+
+## Troubleshooting
+
+### Badge Not Showing
+
+1. **Check inventory tracking**: Product must have "Track quantity" enabled
+2. **Verify threshold**: Current stock must be ≤ threshold
+3. **Check variant**: Selected variant must have inventory tracking enabled
+
+### Badge Not Updating on Variant Change
+
+1. Ensure `inventory-low-stock-badge.js` is loaded
+2. Check that your theme fires `variant:changed` or `variantChange` events
+3. Verify the variant selector has proper data attributes
+
+### Styling Conflicts
+
+Add more specific selectors or use `!important` sparingly:
+
+```css
+.your-theme .low-stock-badge {
+  /* your overrides */
+}
+```
+
+## Changelog
+
+### v1.0.0
+- Initial release
+- Support for product pages and collection cards
+- Three display modes
+- Variant-aware updates
+- Full accessibility support
+```
+
+---
+
+## File 2: inventory-low-stock-badge.liquid
+
+```liquid
+{% comment %}
+  ============================================================================
+  INVENTORY LOW STOCK BADGE
+  ============================================================================
+  
+  A dynamic badge that displays low stock warnings to create purchase urgency.
+  
+  @param {Object}  product             - Required. The product object
+  @param {Number}  threshold           - Optional. Stock level to trigger badge (default: 10)
+  @param {Number}  critical_threshold  - Optional. Stock level for critical styling (default: 3)
+  @param {String}  display_mode        - Optional. 'exact', 'text', or 'range' (default: 'exact')
+  @param {Boolean} show_icon           - Optional. Show warning icon (default: true)
+  @param {String}  context             - Optional. 'product' or 'collection' (default: 'product')
+  @param {Object}  variant             - Optional. Specific variant to check
+  @param {String}  custom_class        - Optional. Additional CSS classes
+  @param {String}  badge_style         - Optional. 'pill', 'rounded', 'square' (default: 'pill')
+  @param {String}  position            - Optional. 'inline', 'absolute-top', 'absolute-bottom'
+  @param {Boolean} animate             - Optional. Enable pulse animation (default: true)
+  @param {Boolean} hide_when_zero      - Optional. Hide when out of stock (default: false)
+  
+  Usage:
+  {% render 'inventory-low-stock-badge', product: product, threshold: 10 %}
+  
+  ============================================================================
+{% endcomment %}
+
+{% comment %} ===== CONFIGURATION & DEFAULTS ===== {% endcomment %}
+{%- liquid
+  # Set default values for all parameters
+  # Using | default filter ensures we have sensible fallbacks
+  assign threshold = threshold | default: 10
+  assign critical_threshold = critical_threshold | default: 3
+  assign display_mode = display_mode | default: 'exact'
+  assign show_icon = show_icon | default: true
+  assign context = context | default: 'product'
+  assign badge_style = badge_style | default: 'pill'
+  assign position = position | default: 'inline'
+  assign animate = animate | default: true
+  assign hide_when_zero = hide_when_zero | default: false
+  assign custom_class = custom_class | default: ''
+  
+  # Determine which variant to check
+  # Priority: passed variant > selected variant > first available > first variant
+  if variant
+    assign current_variant = variant
+  elsif product.selected_or_first_available_variant
+    assign current_variant = product.selected_or_first_available_variant
+  else
+    assign current_variant = product.variants.first
+  endif
+  
+  # Get inventory information
+  # We need to check if inventory is actually being tracked
+  assign inventory_quantity = current_variant.inventory_quantity
+  assign inventory_policy = current_variant.inventory_policy
+  assign inventory_management = current_variant.inventory_management
+  
+  # Determine if we should show the badge at all
+  # Only show for products that track inventory
+  assign should_show = false
+  assign is_tracked = false
+  
+  if inventory_management == 'shopify'
+    assign is_tracked = true
+  endif
+  
+  # Calculate stock status
+  assign is_low_stock = false
+  assign is_critical = false
+  assign is_sold_out = false
+  
+  if is_tracked
+    if inventory_quantity <= 0
+      assign is_sold_out = true
+      unless hide_when_zero
+        assign should_show = true
+      endunless
+    elsif inventory_quantity <= critical_threshold
+      assign is_critical = true
+      assign is_low_stock = true
+      assign should_show = true
+    elsif inventory_quantity <= threshold
+      assign is_low_stock = true
+      assign should_show = true
+    endif
+  endif
+  
+  # Generate unique ID for this badge instance
+  # This allows multiple badges on the same page to work independently
+  assign unique_id = 'low-stock-' | append: product.id | append: '-' | append: current_variant.id
+-%}
+
+{% comment %} ===== ONLY RENDER IF CONDITIONS ARE MET ===== {% endcomment %}
+{%- if should_show -%}
+
+  {% comment %} ===== SCOPED STYLES ===== {% endcomment %}
+  {% comment %} 
+    Styles are included inline with the component to ensure:
+    1. No external dependencies
+    2. Styles load with the component
+    3. Easy to override in theme CSS
+    
+    We use CSS custom properties for easy theming.
+  {% endcomment %}
+  <style>
+    /* ===== CSS Custom Properties for Easy Theming ===== */
+    .low-stock-badge-wrapper {
+      --lsb-low-bg: var(--low-stock-bg, #fef3c7);
+      --lsb-low-text: var(--low-stock-text, #92400e);
+      --lsb-low-border: var(--low-stock-border, #f59e0b);
+      
+      --lsb-critical-bg: var(--critical-stock-bg, #fee2e2);
+      --lsb-critical-text: var(--critical-stock-text, #991b1b);
+      --lsb-critical-border: var(--critical-stock-border, #ef4444);
+      
+      --lsb-sold-out-bg: var(--sold-out-bg, #f3f4f6);
+      --lsb-sold-out-text: var(--sold-out-text, #6b7280);
+      --lsb-sold-out-border: var(--sold-out-border, #d1d5db);
+      
+      /* Base positioning */
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* ===== Position Variants ===== */
+    .low-stock-badge-wrapper--absolute-top,
+    .low-stock-badge-wrapper--absolute-bottom {
+      position: absolute;
+      left: 0.5rem;
+      right: auto;
+      z-index: 10;
+    }
+    
+    .low-stock-badge-wrapper--absolute-top {
+      top: 0.5rem;
+    }
+    
+    .low-stock-badge-wrapper--absolute-bottom {
+      bottom: 0.5rem;
+    }
+    
+    /* ===== Base Badge Styles ===== */
+    .low-stock-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      border-width: 1px;
+      border-style: solid;
+      transition: all 0.2s ease-in-out;
+    }
+    
+    /* Context-specific sizing */
+    .low-stock-badge-wrapper--collection .low-stock-badge {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.6875rem;
+    }
+    
+    /* ===== Badge Shape Variants ===== */
+    .low-stock-badge--pill {
+      border-radius: 9999px;
+    }
+    
+    .low-stock-badge--rounded {
+      border-radius: 0.375rem;
+    }
+    
+    .low-stock-badge--square {
+      border-radius: 0;
+    }
+    
+    /* ===== Stock Level Color Variants ===== */
+    .low-stock-badge
