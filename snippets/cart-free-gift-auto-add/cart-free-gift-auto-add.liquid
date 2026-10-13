@@ -1,0 +1,175 @@
+```liquid
+{% comment %}
+  Cart Free Gift Auto-Add Snippet
+  ================================
+  Automatically adds/removes a free gift based on cart threshold.
+  
+  Required Parameters:
+    - gift_product_handle: Handle of the free gift product
+    - threshold_amount: Minimum cart subtotal to qualify (in currency units)
+  
+  Optional Parameters:
+    - threshold_currency: Currency code (default: shop.currency)
+    - show_progress_bar: Show progress indicator (default: true)
+    - show_in_drawer: Compact mode for cart drawers (default: false)
+    - progress_bar_color: Progress fill color (default: #4CAF50)
+    - background_color: Container background (default: #f5f5f5)
+    - message_below: Custom message when below threshold
+    - message_qualified: Custom message when qualified
+    - gift_image_size: Image dimensions (default: 80x80)
+    - exclude_sale_items: Exclude discounted items from calculation
+    - max_gifts_allowed: Maximum gifts per cart (default: 1)
+    - tier_id: Unique identifier for multi-tier setups
+  
+  Usage:
+    {% render 'cart-free-gift-auto-add',
+      gift_product_handle: 'free-gift-product',
+      threshold_amount: 100
+    %}
+{% endcomment %}
+
+{%- comment -%} Parameter defaults and validation {%- endcomment -%}
+{%- liquid
+  assign gift_handle = gift_product_handle | default: ''
+  assign threshold = threshold_amount | default: 0 | times: 100
+  assign currency = threshold_currency | default: shop.currency
+  assign show_bar = show_progress_bar | default: true
+  assign is_drawer = show_in_drawer | default: false
+  assign bar_color = progress_bar_color | default: '#4CAF50'
+  assign bg_color = background_color | default: '#f5f5f5'
+  assign img_size = gift_image_size | default: '80x80'
+  assign exclude_sale = exclude_sale_items | default: false
+  assign max_gifts = max_gifts_allowed | default: 1
+  assign tier = tier_id | default: 'default'
+  
+  # Fetch the gift product
+  assign gift_product = all_products[gift_handle]
+  
+  # Generate unique component ID for multiple instances
+  assign component_id = 'free-gift-promo-' | append: tier | append: '-' | append: gift_handle | handleize
+-%}
+
+{%- comment -%} Exit early if gift product doesn't exist {%- endcomment -%}
+{%- unless gift_product -%}
+  {%- if request.design_mode -%}
+    <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 1rem 0;">
+      <strong>Free Gift Snippet Error:</strong> Product with handle "{{ gift_handle }}" not found. 
+      Please verify the product handle is correct.
+    </div>
+  {%- endif -%}
+  {%- break -%}
+{%- endunless -%}
+
+{%- comment -%} 
+  Calculate cart subtotal excluding the free gift itself.
+  This prevents the gift from counting toward the threshold.
+{%- endcomment -%}
+{%- liquid
+  assign cart_subtotal = 0
+  assign gift_in_cart = false
+  assign gift_line_key = ''
+  assign gift_quantity_in_cart = 0
+  
+  for item in cart.items
+    # Check if this item is our free gift
+    if item.product.handle == gift_handle
+      assign gift_in_cart = true
+      assign gift_line_key = item.key
+      assign gift_quantity_in_cart = item.quantity
+    else
+      # Calculate subtotal based on settings
+      if exclude_sale and item.product.compare_at_price > item.product.price
+        # Skip sale items if excluded
+      else
+        assign cart_subtotal = cart_subtotal | plus: item.final_line_price
+      endif
+    endif
+  endfor
+  
+  # Determine qualification status
+  assign is_qualified = false
+  if cart_subtotal >= threshold
+    assign is_qualified = true
+  endif
+  
+  # Calculate progress percentage (cap at 100%)
+  assign progress_percent = cart_subtotal | times: 100 | divided_by: threshold
+  if progress_percent > 100
+    assign progress_percent = 100
+  endif
+  
+  # Calculate remaining amount
+  assign remaining = threshold | minus: cart_subtotal
+  if remaining < 0
+    assign remaining = 0
+  endif
+  
+  # Format currency values for display
+  assign remaining_formatted = remaining | money
+  assign threshold_formatted = threshold | money
+-%}
+
+{%- comment -%} Default messages with placeholder support {%- endcomment -%}
+{%- capture default_message_below -%}
+  Add {{ remaining_formatted }} more to get a <strong>FREE {{ gift_product.title }}</strong>!
+{%- endcapture -%}
+
+{%- capture default_message_qualified -%}
+  🎉 You've unlocked your <strong>FREE {{ gift_product.title }}</strong>!
+{%- endcapture -%}
+
+{%- liquid
+  assign msg_below = message_below | default: default_message_below
+  assign msg_qualified = message_qualified | default: default_message_qualified
+  
+  # Replace placeholder tokens in custom messages
+  assign msg_below = msg_below | replace: '{amount}', remaining_formatted | replace: '{threshold}', threshold_formatted | replace: '{gift}', gift_product.title
+  assign msg_qualified = msg_qualified | replace: '{gift}', gift_product.title
+-%}
+
+{%- comment -%} Component Styles - Scoped to prevent conflicts {%- endcomment -%}
+<style>
+  /* 
+   * Free Gift Promo Styles
+   * Scoped using component ID to prevent style bleeding
+   * Uses CSS custom properties for easy theming
+   */
+  #{{ component_id }} {
+    --fgp-primary-color: {{ bar_color }};
+    --fgp-background: {{ bg_color }};
+    --fgp-text-color: #333;
+    --fgp-text-muted: #666;
+    --fgp-border-radius: 8px;
+    --fgp-transition: 0.3s ease;
+    --fgp-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  
+  #{{ component_id }} *,
+  #{{ component_id }} *::before,
+  #{{ component_id }} *::after {
+    box-sizing: inherit;
+  }
+  
+  .free-gift-promo {
+    background: var(--fgp-background);
+    border-radius: var(--fgp-border-radius);
+    padding: {% if is_drawer %}12px{% else %}20px{% endif %};
+    margin: {% if is_drawer %}12px 0{% else %}20px 0{% endif %};
+    box-shadow: var(--fgp-shadow);
+    transition: var(--fgp-transition);
+  }
+  
+  /* Qualified state - subtle celebration effect */
+  .free-gift-promo[data-qualified="true"] {
+    background: linear-gradient(135deg, var(--fgp-background) 0%, #e8f5e9 100%);
+    border: 2px solid var(--fgp-primary-color);
+  }
+  
+  .free-gift-promo__inner {
+    display: flex;
+    align-items: center;
+    gap: {% if is_drawer %}12px{% else %}16px{% endif %};
+    flex-
