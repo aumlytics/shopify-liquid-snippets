@@ -1,0 +1,157 @@
+```liquid
+{% comment %}
+  Product Image Before/After Comparison Slider
+  
+  An accessible, touch-friendly image comparison slider for Shopify stores.
+  Allows customers to compare two product images by dragging a divider.
+  
+  @param {Image} before_image - Shopify image object for the "before" state
+  @param {Image} after_image - Shopify image object for the "after" state
+  @param {String} before_image_url - Direct URL alternative for before image
+  @param {String} after_image_url - Direct URL alternative for after image
+  @param {String} before_label - Label text for before side (default: "Before")
+  @param {String} after_label - Label text for after side (default: "After")
+  @param {Number} initial_position - Starting slider position 0-100 (default: 50)
+  @param {String} slider_color - Color of slider handle/line (default: "#ffffff")
+  @param {Number} slider_width - Width of slider line in px (default: 4)
+  @param {Number} handle_size - Size of drag handle in px (default: 44)
+  @param {Boolean} show_labels - Show before/after labels (default: true)
+  @param {String} labels_position - "top", "bottom", or "middle" (default: "bottom")
+  @param {String} aspect_ratio - "auto", "1/1", "4/3", "16/9", "3/4" (default: "auto")
+  @param {String} max_width - Max container width (default: "100%")
+  @param {String} border_radius - Container border radius (default: "0px")
+  @param {Boolean} lazy_load - Enable lazy loading (default: true)
+  @param {String} unique_id - Unique ID for multiple instances
+  
+  Usage:
+  {% render 'product-image-before-after-slider',
+    before_image: product.images[0],
+    after_image: product.images[1],
+    before_label: "Before",
+    after_label: "After"
+  %}
+{% endcomment %}
+
+{% comment %} === Parameter Processing === {% endcomment %}
+{% comment %} 
+  We process parameters early to establish defaults and validate inputs.
+  This makes the template more maintainable and prevents errors downstream.
+{% endcomment %}
+
+{% liquid
+  # Generate a unique ID if not provided - essential for multiple sliders on same page
+  assign slider_id = unique_id | default: 'ba-slider-' | append: 'now' | append: section.id | default: '' | append: block.id | default: ''
+  if slider_id == 'ba-slider-now'
+    assign random_suffix = 'now' | date: '%N' | slice: 0, 8
+    assign slider_id = 'ba-slider-' | append: random_suffix
+  endif
+
+  # Image sources - support both Shopify image objects and direct URLs
+  # This flexibility allows use with metafields, external images, or standard product images
+  assign before_src = before_image_url
+  assign after_src = after_image_url
+  
+  if before_image
+    assign before_src = before_image | image_url: width: 1200
+    assign before_alt = before_image.alt | default: before_label | default: 'Before image'
+  else
+    assign before_alt = before_label | default: 'Before image'
+  endif
+  
+  if after_image
+    assign after_src = after_image | image_url: width: 1200
+    assign after_alt = after_image.alt | default: after_label | default: 'After image'
+  else
+    assign after_alt = after_label | default: 'After image'
+  endif
+
+  # Set defaults for all configurable options
+  assign before_label_text = before_label | default: 'Before'
+  assign after_label_text = after_label | default: 'After'
+  assign position = initial_position | default: 50 | times: 1
+  assign color = slider_color | default: '#ffffff'
+  assign width = slider_width | default: 4
+  assign handle = handle_size | default: 44
+  assign labels = show_labels | default: true
+  assign label_pos = labels_position | default: 'bottom'
+  assign ratio = aspect_ratio | default: 'auto'
+  assign max_w = max_width | default: '100%'
+  assign radius = border_radius | default: '0px'
+  assign lazy = lazy_load | default: true
+
+  # Determine aspect ratio CSS value
+  # We support common aspect ratios to maintain consistent layouts
+  case ratio
+    when '1/1'
+      assign ratio_value = '1 / 1'
+    when '4/3'
+      assign ratio_value = '4 / 3'
+    when '16/9'
+      assign ratio_value = '16 / 9'
+    when '3/4'
+      assign ratio_value = '3 / 4'
+    else
+      assign ratio_value = 'auto'
+  endcase
+
+  # Validate position is within bounds
+  if position < 0
+    assign position = 0
+  elsif position > 100
+    assign position = 100
+  endif
+%}
+
+{% comment %} === Validation Check === {% endcomment %}
+{% comment %}
+  Early exit if required images are missing.
+  This prevents broken UI and provides helpful feedback during development.
+{% endcomment %}
+{% unless before_src and after_src %}
+  <div class="ba-slider-error" style="padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+    <strong>Before/After Slider:</strong> Both before and after images are required.
+    {% if before_src == blank %}Missing before image.{% endif %}
+    {% if after_src == blank %}Missing after image.{% endif %}
+  </div>
+  {% break %}
+{% endunless %}
+
+{% comment %} === Scoped Styles === {% endcomment %}
+{% comment %}
+  Styles are scoped to this specific instance using the unique slider_id.
+  This prevents style conflicts when multiple sliders exist on the same page.
+  We use CSS custom properties for easy theming and JavaScript manipulation.
+{% endcomment %}
+<style>
+  /* 
+   * Container setup - establishes the comparison viewport
+   * We use CSS containment for performance optimization
+   */
+  #{{ slider_id }} {
+    --ba-position: {{ position }}%;
+    --ba-slider-color: {{ color }};
+    --ba-slider-width: {{ width }}px;
+    --ba-handle-size: {{ handle }}px;
+    
+    position: relative;
+    width: 100%;
+    max-width: {{ max_w }};
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: {{ radius }};
+    contain: layout style;
+    /* Touch-action pan-y allows vertical scrolling while we handle horizontal */
+    touch-action: pan-y pinch-zoom;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /*
+   * Aspect ratio handling
+   * For 'auto', we let images determine their natural ratio
+   * For fixed ratios, we use the modern aspect-ratio property with fallback
+   */
+  {% if ratio_value != 'auto' %}
+  #{{ slider_id }} {
+    aspect-ratio: {{ ratio_value }};
+  }
