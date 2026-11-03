@@ -1,0 +1,292 @@
+```liquid
+{% comment %}
+  Sticky Collection Filter Sidebar
+  ================================
+  Keeps the collection filter sidebar visible while scrolling through products.
+  
+  @param {Object} collection - Required. The collection object to display filters for.
+  @param {Boolean} enable_sticky - Enable sticky behavior. Default: true
+  @param {Number} sticky_offset - Pixels from top when sticky. Default: 100
+  @param {Number} mobile_breakpoint - Width to switch to mobile drawer. Default: 768
+  @param {Boolean} show_filter_count - Show active filter count badge. Default: true
+  @param {Boolean} collapse_on_mobile - Auto-collapse on mobile. Default: true
+  @param {String} sidebar_width - Width of sidebar. Default: '280px'
+  @param {Number} z_index - Z-index for positioning. Default: 100
+  @param {Number} animation_duration - Animation duration in ms. Default: 300
+{% endcomment %}
+
+{% comment %} Set default values for all parameters {% endcomment %}
+{%- liquid
+  assign enable_sticky = enable_sticky | default: true
+  assign sticky_offset = sticky_offset | default: 100
+  assign mobile_breakpoint = mobile_breakpoint | default: 768
+  assign show_filter_count = show_filter_count | default: true
+  assign collapse_on_mobile = collapse_on_mobile | default: true
+  assign sidebar_width = sidebar_width | default: '280px'
+  assign z_index = z_index | default: 100
+  assign animation_duration = animation_duration | default: 300
+-%}
+
+{% comment %} Calculate active filter count for badge display {% endcomment %}
+{%- liquid
+  assign active_filter_count = 0
+  for filter in collection.filters
+    assign active_filter_count = active_filter_count | plus: filter.active_values.size
+    if filter.type == 'price_range'
+      if filter.min_value.value != nil or filter.max_value.value != nil
+        assign active_filter_count = active_filter_count | plus: 1
+      endif
+    endif
+  endfor
+-%}
+
+{% comment %} 
+  Inline Styles
+  =============
+  We use inline styles scoped to this component to avoid conflicts with theme CSS.
+  CSS custom properties allow easy theme customization without modifying the snippet.
+{% endcomment %}
+<style>
+  /* CSS Custom Properties for theming - can be overridden in theme CSS */
+  :root {
+    --sticky-filter-bg: #ffffff;
+    --sticky-filter-border: #e5e5e5;
+    --sticky-filter-text: #333333;
+    --sticky-filter-text-muted: #666666;
+    --sticky-filter-accent: #000000;
+    --sticky-filter-accent-hover: #333333;
+    --sticky-filter-radius: 8px;
+    --sticky-filter-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --sticky-filter-overlay: rgba(0, 0, 0, 0.5);
+  }
+
+  /* Main container - uses CSS Grid for layout control */
+  .sticky-filter-container {
+    display: grid;
+    grid-template-columns: {{ sidebar_width }} 1fr;
+    gap: 2rem;
+    position: relative;
+    align-items: start;
+  }
+
+  /* 
+    Sidebar wrapper - the sticky positioning happens here
+    We use position: sticky which is well-supported and performant
+    The top value accounts for fixed headers
+  */
+  .sticky-filter-sidebar {
+    {% if enable_sticky %}
+    position: sticky;
+    top: {{ sticky_offset }}px;
+    {% endif %}
+    max-height: calc(100vh - {{ sticky_offset }}px - 2rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: {{ z_index }};
+    background: var(--sticky-filter-bg);
+    border: 1px solid var(--sticky-filter-border);
+    border-radius: var(--sticky-filter-radius);
+    padding: 1.5rem;
+    /* Smooth scroll for when content exceeds viewport */
+    scroll-behavior: smooth;
+    /* Hide scrollbar but maintain functionality */
+    scrollbar-width: thin;
+    scrollbar-color: var(--sticky-filter-border) transparent;
+  }
+
+  /* Custom scrollbar styling for Webkit browsers */
+  .sticky-filter-sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sticky-filter-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sticky-filter-sidebar::-webkit-scrollbar-thumb {
+    background-color: var(--sticky-filter-border);
+    border-radius: 3px;
+  }
+
+  /* Header section with title and active filter count */
+  .sticky-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--sticky-filter-border);
+  }
+
+  .sticky-filter-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--sticky-filter-text);
+    margin: 0;
+  }
+
+  /* Badge showing number of active filters */
+  .sticky-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    background: var(--sticky-filter-accent);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 1rem;
+  }
+
+  /* Hide badge when no filters are active */
+  .sticky-filter-count:empty,
+  .sticky-filter-count[data-count="0"] {
+    display: none;
+  }
+
+  /* Individual filter group container */
+  .sticky-filter-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .sticky-filter-group:last-child {
+    margin-bottom: 0;
+  }
+
+  /* 
+    Filter group uses details/summary for native collapse behavior
+    This provides accessibility out of the box
+  */
+  .sticky-filter-group details {
+    border-bottom: 1px solid var(--sticky-filter-border);
+    padding-bottom: 1rem;
+  }
+
+  .sticky-filter-group details[open] summary {
+    margin-bottom: 0.75rem;
+  }
+
+  .sticky-filter-group summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 500;
+    color: var(--sticky-filter-text);
+    padding: 0.5rem 0;
+    user-select: none;
+  }
+
+  /* Remove default marker in Safari */
+  .sticky-filter-group summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Chevron icon that rotates on open */
+  .sticky-filter-group summary::after {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid var(--sticky-filter-text);
+    border-bottom: 2px solid var(--sticky-filter-text);
+    transform: rotate(-45deg);
+    transition: transform {{ animation_duration }}ms ease;
+  }
+
+  .sticky-filter-group details[open] summary::after {
+    transform: rotate(45deg);
+  }
+
+  /* Focus styles for accessibility */
+  .sticky-filter-group summary:focus {
+    outline: 2px solid var(--sticky-filter-accent);
+    outline-offset: 2px;
+  }
+
+  .sticky-filter-group summary:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Filter options list */
+  .sticky-filter-options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .sticky-filter-option {
+    margin-bottom: 0.5rem;
+  }
+
+  .sticky-filter-option:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Filter checkbox/radio label styling */
+  .sticky-filter-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--sticky-filter-text);
+    padding: 0.25rem 0;
+    transition: color {{ animation_duration }}ms ease;
+  }
+
+  .sticky-filter-label:hover {
+    color: var(--sticky-filter-accent);
+  }
+
+  /* Custom checkbox styling */
+  .sticky-filter-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--sticky-filter-border);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all {{ animation_duration }}ms ease;
+  }
+
+  .sticky-filter-checkbox:checked {
+    background: var(--sticky-filter-accent);
+    border-color: var(--sticky-filter-accent);
+  }
+
+  .sticky-filter-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 4px;
+    height: 8px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .sticky-filter-checkbox:focus {
+    outline: 2px solid var(--sticky-filter-accent);
+    outline-offset: 2px;
+  }
+
+  /* Product count next to filter option */
+  .sticky-filter-option-count {
+    color: var(--sticky-filter-text-muted);
+    font-size: 0.75rem;
+    margin-left: auto;
+  }
+
+  /* Price range filter specific styles */
+  .sticky-filter-price-range {
+    display: flex;
+    gap:
