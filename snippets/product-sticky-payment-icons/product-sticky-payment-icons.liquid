@@ -1,0 +1,134 @@
+```liquid
+{%- comment -%}
+  Sticky Payment Icons Trust Bar
+  ==============================
+  A conversion-optimized trust bar displaying accepted payment methods.
+  
+  This snippet builds customer confidence by showing recognizable payment
+  icons that persist during scroll, addressing the #1 reason for cart
+  abandonment: lack of trust in payment security.
+  
+  Performance: 
+  - Zero external requests (inline SVGs)
+  - ~15KB uncompressed, ~4KB gzipped
+  - Non-blocking JavaScript
+  
+  @version 2.0.0
+  @author Expert Shopify Developer
+  @see README.md for full documentation
+{%- endcomment -%}
+
+{%- liquid
+  # ============================================
+  # PARAMETER INITIALIZATION WITH DEFAULTS
+  # ============================================
+  # Using default filter to allow override while providing sensible defaults
+  
+  # Core display settings
+  assign enabled = enabled | default: true
+  assign position = position | default: 'bottom'
+  assign show_on_all_pages = show_on_all_pages | default: false
+  assign show_on_mobile = show_on_mobile | default: true
+  assign show_on_desktop = show_on_desktop | default: true
+  
+  # Scroll behavior
+  assign scroll_trigger = scroll_trigger | default: 200
+  assign hide_on_scroll_up = hide_on_scroll_up | default: false
+  assign always_visible = always_visible | default: false
+  
+  # Content settings
+  assign title_text = title_text | default: 'Secure Payment'
+  assign show_title = show_title | default: true
+  assign show_lock_icon = show_lock_icon | default: true
+  assign subtitle_text = subtitle_text | default: ''
+  
+  # Payment icon toggles - enabled by default for common methods
+  assign show_visa = show_visa | default: true
+  assign show_mastercard = show_mastercard | default: true
+  assign show_amex = show_amex | default: true
+  assign show_paypal = show_paypal | default: true
+  assign show_shop_pay = show_shop_pay | default: true
+  assign show_apple_pay = show_apple_pay | default: true
+  assign show_google_pay = show_google_pay | default: true
+  
+  # Payment icons disabled by default (regional/optional)
+  assign show_discover = show_discover | default: false
+  assign show_klarna = show_klarna | default: false
+  assign show_afterpay = show_afterpay | default: false
+  
+  # Styling parameters
+  assign background_color = background_color | default: '#ffffff'
+  assign text_color = text_color | default: '#333333'
+  assign border_color = border_color | default: '#e5e5e5'
+  assign icon_size = icon_size | default: '32px'
+  assign bar_padding = bar_padding | default: '12px 20px'
+  assign z_index = z_index | default: 9999
+  assign shadow = shadow | default: true
+  assign border_radius = border_radius | default: '0'
+  
+  # ============================================
+  # CONDITIONAL DISPLAY LOGIC
+  # ============================================
+  # Determine if we should render based on page context
+  
+  assign should_render = false
+  
+  if enabled
+    if show_on_all_pages
+      assign should_render = true
+    elsif template.name == 'product'
+      assign should_render = true
+    endif
+  endif
+  
+  # Generate unique ID for multiple instances
+  assign unique_id = 'spi-' | append: 'now' | date: '%N' | slice: 0, 8
+-%}
+
+{%- if should_render -%}
+  {%- comment -%}
+    STYLES
+    ------
+    Scoped CSS with BEM-like naming convention (spi = sticky payment icons)
+    All styles are inline to avoid external requests and ensure encapsulation
+  {%- endcomment -%}
+  
+  <style>
+    /* Base container - hidden by default, shown via JS */
+    .sticky-payment-icons {
+      --spi-bg: {{ background_color }};
+      --spi-text: {{ text_color }};
+      --spi-border: {{ border_color }};
+      --spi-icon-size: {{ icon_size }};
+      --spi-z-index: {{ z_index }};
+      
+      position: fixed;
+      left: 0;
+      right: 0;
+      {{ position }}: 0;
+      z-index: var(--spi-z-index);
+      
+      background-color: var(--spi-bg);
+      border-{{ position | replace: 'bottom', 'top' | replace: 'top', 'bottom' }}: 1px solid var(--spi-border);
+      {%- if shadow %}
+      box-shadow: 0 {{ position | replace: 'bottom', '-' | replace: 'top', '' }}4px 12px rgba(0, 0, 0, 0.08);
+      {%- endif %}
+      border-radius: {{ border_radius }};
+      
+      padding: {{ bar_padding }};
+      
+      /* Hidden by default - JS controls visibility */
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY({% if position == 'bottom' %}20px{% else %}-20px{% endif %});
+      transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+      
+      /* Ensure it doesn't interfere with page when hidden */
+      pointer-events: none;
+    }
+    
+    /* Visible state - applied by JavaScript */
+    .sticky-payment-icons.spi-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(
