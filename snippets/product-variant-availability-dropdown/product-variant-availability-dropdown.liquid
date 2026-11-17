@@ -1,0 +1,220 @@
+```liquid
+{% comment %}
+  Product Variant Availability Dropdown
+  =====================================
+  
+  Displays product variant options as accessible dropdowns with sold-out states.
+  
+  Parameters:
+  - product: (required) The product object
+  - current_variant: The currently selected variant (default: first available)
+  - show_availability_count: Show remaining inventory count (default: false)
+  - low_stock_threshold: Threshold for low stock warning (default: 5)
+  - sold_out_text: Text for sold out options (default: "Sold Out")
+  - low_stock_text: Text for low stock warning (default: "Low Stock")
+  - select_text: Prefix for select labels (default: "Select")
+  - enable_auto_select: Auto-select first available option (default: true)
+  - class_prefix: CSS class prefix (default: "variant-dropdown")
+  - id_prefix: ID prefix for elements (default: "ProductVariant")
+  
+  Usage:
+  {% render 'product-variant-availability-dropdown',
+    product: product,
+    current_variant: product.selected_or_first_available_variant,
+    show_availability_count: true
+  %}
+{% endcomment %}
+
+{%- comment -%} Set default values for parameters {%- endcomment -%}
+{%- liquid
+  assign current_variant = current_variant | default: product.selected_or_first_available_variant
+  assign show_availability_count = show_availability_count | default: false
+  assign low_stock_threshold = low_stock_threshold | default: 5
+  assign sold_out_text = sold_out_text | default: "Sold Out"
+  assign low_stock_text = low_stock_text | default: "Low Stock"
+  assign select_text = select_text | default: "Select"
+  assign enable_auto_select = enable_auto_select | default: true
+  assign class_prefix = class_prefix | default: "variant-dropdown"
+  assign id_prefix = id_prefix | default: "ProductVariant"
+-%}
+
+{%- comment -%} Only render if product has variants {%- endcomment -%}
+{%- if product.has_only_default_variant == false -%}
+
+  {%- comment -%} 
+    Scoped CSS Styles
+    -----------------
+    Using CSS custom properties for easy theme customization.
+    All classes are prefixed to avoid conflicts with theme styles.
+  {%- endcomment -%}
+  <style>
+    /* CSS Custom Properties for easy customization */
+    .{{ class_prefix }} {
+      --vd-primary: var(--variant-dropdown-primary, #000000);
+      --vd-text: var(--variant-dropdown-text, #333333);
+      --vd-disabled: var(--variant-dropdown-disabled, #999999);
+      --vd-disabled-bg: var(--variant-dropdown-disabled-bg, #f5f5f5);
+      --vd-border: var(--variant-dropdown-border, #e0e0e0);
+      --vd-border-hover: var(--variant-dropdown-border-hover, #000000);
+      --vd-focus: var(--variant-dropdown-focus, #005bd3);
+      --vd-focus-ring: var(--variant-dropdown-focus-ring, rgba(0, 91, 211, 0.25));
+      --vd-error: var(--variant-dropdown-error, #dc2626);
+      --vd-warning: var(--variant-dropdown-warning, #f59e0b);
+      --vd-success: var(--variant-dropdown-success, #16a34a);
+      --vd-radius: var(--variant-dropdown-radius, 8px);
+      --vd-padding: var(--variant-dropdown-padding, 12px 16px);
+      --vd-font-size: var(--variant-dropdown-font-size, 14px);
+      --vd-font-family: var(--variant-dropdown-font-family, inherit);
+      --vd-transition: var(--variant-dropdown-transition, 150ms ease);
+    }
+
+    /* Container styles */
+    .{{ class_prefix }} {
+      font-family: var(--vd-font-family);
+      font-size: var(--vd-font-size);
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .{{ class_prefix }}__fieldset {
+      border: none;
+      margin: 0 0 16px 0;
+      padding: 0;
+    }
+
+    .{{ class_prefix }}__fieldset:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Label styles */
+    .{{ class_prefix }}__label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--vd-text);
+      font-size: var(--vd-font-size);
+    }
+
+    .{{ class_prefix }}__label-value {
+      font-weight: 400;
+      color: var(--vd-disabled);
+      margin-left: 4px;
+    }
+
+    /* Select wrapper for custom styling */
+    .{{ class_prefix }}__select-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    /* Custom select dropdown */
+    .{{ class_prefix }}__select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 100%;
+      padding: var(--vd-padding);
+      padding-right: 44px; /* Space for arrow */
+      font-family: var(--vd-font-family);
+      font-size: var(--vd-font-size);
+      color: var(--vd-text);
+      background-color: #ffffff;
+      border: 1px solid var(--vd-border);
+      border-radius: var(--vd-radius);
+      cursor: pointer;
+      transition: border-color var(--vd-transition), box-shadow var(--vd-transition);
+      line-height: 1.4;
+    }
+
+    .{{ class_prefix }}__select:hover:not(:disabled) {
+      border-color: var(--vd-border-hover);
+    }
+
+    .{{ class_prefix }}__select:focus {
+      outline: none;
+      border-color: var(--vd-focus);
+      box-shadow: 0 0 0 3px var(--vd-focus-ring);
+    }
+
+    .{{ class_prefix }}__select:disabled {
+      background-color: var(--vd-disabled-bg);
+      color: var(--vd-disabled);
+      cursor: not-allowed;
+    }
+
+    /* Custom dropdown arrow */
+    .{{ class_prefix }}__select-arrow {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 12px;
+      pointer-events: none;
+      color: var(--vd-text);
+      transition: transform var(--vd-transition);
+    }
+
+    .{{ class_prefix }}__select:focus + .{{ class_prefix }}__select-arrow {
+      color: var(--vd-focus);
+    }
+
+    .{{ class_prefix }}__select:disabled + .{{ class_prefix }}__select-arrow {
+      color: var(--vd-disabled);
+    }
+
+    /* Option styles - limited browser support but provides enhancement where available */
+    .{{ class_prefix }}__option {
+      padding: 8px 12px;
+    }
+
+    .{{ class_prefix }}__option--sold-out {
+      color: var(--vd-disabled);
+      background-color: var(--vd-disabled-bg);
+    }
+
+    .{{ class_prefix }}__option--low-stock {
+      color: var(--vd-warning);
+    }
+
+    /* Status indicator */
+    .{{ class_prefix }}__status {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 8px;
+      padding: 6px 12px;
+      border-radius: calc(var(--vd-radius) - 2px);
+      font-size: calc(var(--vd-font-size) - 2px);
+      font-weight: 500;
+    }
+
+    .{{ class_prefix }}__status--available {
+      background-color: rgba(22, 163, 74, 0.1);
+      color: var(--vd-success);
+    }
+
+    .{{ class_prefix }}__status--low-stock {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: var(--vd-warning);
+    }
+
+    .{{ class_prefix }}__status--sold-out {
+      background-color: rgba(220, 38, 38, 0.1);
+      color: var(--vd-error);
+    }
+
+    .{{ class_prefix }}__status-icon {
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Hidden variant ID input */
+    .{{ class_prefix }}__variant-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1
