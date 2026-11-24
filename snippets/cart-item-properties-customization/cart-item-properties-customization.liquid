@@ -1,0 +1,194 @@
+```liquid
+{% comment %}
+  Cart Item Properties Customization Snippet
+  ==========================================
+  
+  Purpose: Renders customizable input fields for product personalization.
+  These values are captured as line item properties and appear on orders.
+  
+  Required Parameters:
+    - product: The product object
+  
+  Optional Parameters:
+    - enabled: Boolean to enable/disable (default: true)
+    - fields: Comma-separated field names (default: 'engraving')
+    - section_title: Title for the section (default: 'Personalization')
+    - show_preview: Show text preview (default: true)
+    - preview_font: Font for preview (default: 'inherit')
+  
+  Field-specific parameters (prefix with field name):
+    - {field}_label: Display label
+    - {field}_type: text, textarea, select, checkbox
+    - {field}_placeholder: Placeholder text
+    - {field}_required: Boolean
+    - {field}_max_chars: Character limit
+    - {field}_pattern: letters, numbers, alphanumeric
+    - {field}_options: Comma-separated select options
+    - {field}_price: Additional price in cents (display only)
+  
+  Usage:
+    {% render 'cart-item-properties-customization',
+      product: product,
+      fields: 'engraving,gift_message',
+      engraving_label: 'Custom Engraving',
+      engraving_max_chars: 20
+    %}
+{% endcomment %}
+
+{%- comment -%} Default values and configuration {%- endcomment -%}
+{%- liquid
+  assign snippet_enabled = enabled | default: true
+  assign field_list = fields | default: 'engraving'
+  assign title = section_title | default: 'Personalization'
+  assign preview_enabled = show_preview | default: true
+  assign preview_font_family = preview_font | default: 'inherit'
+  
+  # Generate unique ID for this instance to avoid conflicts with multiple products
+  assign unique_id = product.id | append: '-' | append: 'now' | md5 | truncate: 8, ''
+-%}
+
+{%- if snippet_enabled and product -%}
+  {%- comment -%} 
+    Scoped CSS - Using unique ID prefix to prevent style bleeding
+    All styles are contained within this snippet for portability
+  {%- endcomment -%}
+  <style>
+    .cip-wrapper-{{ unique_id }} {
+      /* Container styling with clear visual separation */
+      margin: 1.5rem 0;
+      padding: 1.25rem;
+      border: 1px solid var(--color-border, #e5e5e5);
+      border-radius: 8px;
+      background-color: var(--color-background, #fafafa);
+    }
+    
+    .cip-wrapper-{{ unique_id }} * {
+      box-sizing: border-box;
+    }
+    
+    .cip-title-{{ unique_id }} {
+      /* Section title - uses theme variables where available */
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--color-border, #e5e5e5);
+      color: var(--color-foreground, #1a1a1a);
+    }
+    
+    .cip-field-{{ unique_id }} {
+      /* Individual field wrapper with consistent spacing */
+      margin-bottom: 1.25rem;
+    }
+    
+    .cip-field-{{ unique_id }}:last-child {
+      margin-bottom: 0;
+    }
+    
+    .cip-label-{{ unique_id }} {
+      /* Label styling with flex for required indicator */
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--color-foreground, #1a1a1a);
+    }
+    
+    .cip-required-{{ unique_id }} {
+      /* Required field indicator - accessible color contrast */
+      color: #dc2626;
+      font-weight: 400;
+      font-size: 0.75rem;
+    }
+    
+    .cip-price-badge-{{ unique_id }} {
+      /* Price badge for fields with additional cost */
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.125rem 0.5rem;
+      background-color: var(--color-accent, #4f46e5);
+      color: white;
+      border-radius: 9999px;
+      margin-left: auto;
+    }
+    
+    .cip-input-{{ unique_id }},
+    .cip-textarea-{{ unique_id }},
+    .cip-select-{{ unique_id }} {
+      /* Unified input styling for consistency */
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      font-family: inherit;
+      line-height: 1.5;
+      color: var(--color-foreground, #1a1a1a);
+      background-color: var(--color-background-input, #ffffff);
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: 6px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    .cip-input-{{ unique_id }}:focus,
+    .cip-textarea-{{ unique_id }}:focus,
+    .cip-select-{{ unique_id }}:focus {
+      /* Focus state for accessibility - visible focus ring */
+      outline: none;
+      border-color: var(--color-focus, #4f46e5);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+    
+    .cip-input-{{ unique_id }}[aria-invalid="true"],
+    .cip-textarea-{{ unique_id }}[aria-invalid="true"] {
+      /* Invalid state styling */
+      border-color: #dc2626;
+    }
+    
+    .cip-textarea-{{ unique_id }} {
+      /* Textarea specific - allow vertical resize only */
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .cip-select-{{ unique_id }} {
+      /* Select specific - custom arrow */
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      padding-right: 2.5rem;
+      cursor: pointer;
+    }
+    
+    .cip-checkbox-wrapper-{{ unique_id }} {
+      /* Checkbox layout - inline with label */
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+    
+    .cip-checkbox-{{ unique_id }} {
+      /* Custom checkbox styling */
+      width: 1.25rem;
+      height: 1.25rem;
+      margin-top: 0.125rem;
+      cursor: pointer;
+      accent-color: var(--color-accent, #4f46e5);
+    }
+    
+    .cip-checkbox-label-{{ unique_id }} {
+      /* Checkbox label - clickable area */
+      font-size: 0.875rem;
+      color: var(--color-foreground, #1a1a1a);
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .cip-char-count-{{ unique_id }} {
+      /* Character counter - positioned below input */
+      display: flex;
+      justify-content: flex-end;
+      font-size: 0.75rem;
+      margin-top: 0.375rem;
